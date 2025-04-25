@@ -70,3 +70,69 @@ void send_error_response(char *error_msg);
 char *strncasestr(const char *haystack, const char *needle);
 int parse_condition(char *where_clause, Condition *condition);
 int evaluate_condition(Condition *condition, char *record, TableSchema *schema);
+
+//implementation of main
+int main() {
+    char *query_string = getenv("QUERY_STRING");
+    
+    if (query_string == NULL) {
+        send_error_response("No SQL query provided");
+        return 1;
+    }
+    
+    // Decode URL-encoded query string
+    char sql[MAX_QUERY_LEN];
+    int i = 0, j = 0;
+    
+    while (query_string[i] && j < MAX_QUERY_LEN - 1) {
+        if (query_string[i] == '+') {
+            sql[j++] = ' ';
+        } else if (query_string[i] == '%' && query_string[i+1] && query_string[i+2]) {
+            // Handle URL encoding (e.g., %20 = space)
+            char hex[3] = {query_string[i+1], query_string[i+2], 0};
+            sql[j++] = (char)strtol(hex, NULL, 16);
+            i += 2;
+        } else {
+            sql[j++] = query_string[i];
+        }
+        i++;
+    }
+    sql[j] = '\0';
+    
+    // Parse and execute SQL command
+    int command_type;
+    int result = parse_sql_command(sql, &command_type);
+    
+    if (result != 0) {
+        send_error_response("Failed to parse SQL command");
+        return 1;
+    }
+    
+    switch (command_type) {
+        case CMD_CREATE:
+            result = execute_create(sql);
+            break;
+        case CMD_INSERT:
+            result = execute_insert(sql);
+            break;
+        case CMD_UPDATE:
+            result = execute_update(sql);
+            break;
+        case CMD_SELECT:
+            result = execute_select(sql);
+            break;
+        case CMD_DELETE:
+            result = execute_delete(sql);
+            break;
+        default:
+            send_error_response("Unknown SQL command");
+            return 1;
+    }
+    
+    if (result != 0) {
+        send_error_response("Error executing SQL command");
+        return 1;
+    }
+    
+    return 0;
+}
