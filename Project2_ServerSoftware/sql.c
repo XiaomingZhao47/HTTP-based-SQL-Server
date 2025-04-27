@@ -74,82 +74,132 @@ char *strncasestr(const char *haystack, const char *needle);
 int parse_condition(char *where_clause, Condition *condition);
 int evaluate_condition(Condition *condition, char *record, TableSchema *schema);
 
-// implementation of main
-int main()
-{
-    char *query_string = getenv("QUERY_STRING");
-
-    if (query_string == NULL)
-    {
-        send_error_response("No SQL query provided");
-        return 1;
+#ifdef UNIT_TEST
+// Unit test function
+void run_unit_tests() {
+    printf("Running unit tests...\n");
+    
+    // Test CREATE TABLE
+    printf("Test CREATE TABLE: ");
+    char create_sql[] = "CREATE TABLE test_table (id smallint, name char(20), age int)";
+    if (execute_create(create_sql) == 0) {
+        printf("PASSED\n");
+    } else {
+        printf("FAILED\n");
     }
-
-    // Decode URL-encoded query string
-    char sql[MAX_QUERY_LEN];
-    int i = 0, j = 0;
-
-    while (query_string[i] && j < MAX_QUERY_LEN - 1)
-    {
-        if (query_string[i] == '+')
-        {
-            sql[j++] = ' ';
-        }
-        else if (query_string[i] == '%' && query_string[i + 1] && query_string[i + 2])
-        {
-            // Handle URL encoding (e.g., %20 = space)
-            char hex[3] = {query_string[i + 1], query_string[i + 2], 0};
-            sql[j++] = (char)strtol(hex, NULL, 16);
-            i += 2;
-        }
-        else
-        {
-            sql[j++] = query_string[i];
-        }
-        i++;
+    
+    // Test INSERT
+    printf("Test INSERT: ");
+    char insert_sql[] = "INSERT INTO test_table VALUES (1, 'John Doe', 30)";
+    if (execute_insert(insert_sql) == 0) {
+        printf("PASSED\n");
+    } else {
+        printf("FAILED\n");
     }
-    sql[j] = '\0';
-
-    // Parse and execute SQL command
-    int command_type;
-    int result = parse_sql_command(sql, &command_type);
-
-    if (result != 0)
-    {
-        send_error_response("Failed to parse SQL command");
-        return 1;
+    
+    // Test SELECT
+    printf("Test SELECT: ");
+    char select_sql[] = "SELECT * FROM test_table";
+    if (execute_select(select_sql) == 0) {
+        printf("PASSED\n");
+    } else {
+        printf("FAILED\n");
     }
-
-    switch (command_type)
-    {
-    case CMD_CREATE:
-        result = execute_create(sql);
-        break;
-    case CMD_INSERT:
-        result = execute_insert(sql);
-        break;
-    case CMD_UPDATE:
-        result = execute_update(sql);
-        break;
-    case CMD_SELECT:
-        result = execute_select(sql);
-        break;
-    case CMD_DELETE:
-        result = execute_delete(sql);
-        break;
-    default:
-        send_error_response("Unknown SQL command");
-        return 1;
+    
+    // Test UPDATE
+    printf("Test UPDATE: ");
+    char update_sql[] = "UPDATE test_table SET age = 35 WHERE id = 1";
+    if (execute_update(update_sql) == 0) {
+        printf("PASSED\n");
+    } else {
+        printf("FAILED\n");
     }
-
-    if (result != 0)
-    {
-        send_error_response("Error executing SQL command");
-        return 1;
+    
+    // Test DELETE
+    printf("Test DELETE: ");
+    char delete_sql[] = "DELETE FROM test_table WHERE id = 1";
+    if (execute_delete(delete_sql) == 0) {
+        printf("PASSED\n");
+    } else {
+        printf("FAILED\n");
     }
-
-    return 0;
+    
+    printf("Unit tests completed.\n");
 }
+#endif
+
+// Main
+int main(void) {
+    #ifdef UNIT_TEST
+        run_unit_tests();
+        return 0;
+    #else
+        // Normal CGI processing
+        char *query_string = getenv("QUERY_STRING");
+        
+        if (query_string == NULL) {
+            send_error_response("No SQL query provided");
+            return 1;
+        }
+        
+        // Decode URL-encoded query string
+        char sql[MAX_QUERY_LEN];
+        int i = 0, j = 0;
+        
+        while (query_string[i] && j < MAX_QUERY_LEN - 1) {
+            if (query_string[i] == '+') {
+                sql[j++] = ' ';
+            } else if (query_string[i] == '%' && query_string[i+1] && query_string[i+2]) {
+                // Handle URL encoding (e.g., %20 = space)
+                char hex[3] = {query_string[i+1], query_string[i+2], 0};
+                sql[j++] = (char)strtol(hex, NULL, 16);
+                i += 2;
+            } else {
+                sql[j++] = query_string[i];
+            }
+            i++;
+        }
+        sql[j] = '\0';
+        
+        // Parse and execute SQL command
+        int command_type;
+        int result = parse_sql_command(sql, &command_type);
+        
+        if (result != 0) {
+            send_error_response("Failed to parse SQL command");
+            return 1;
+        }
+        
+        switch (command_type) {
+            case CMD_CREATE:
+                result = execute_create(sql);
+                break;
+            case CMD_INSERT:
+                result = execute_insert(sql);
+                break;
+            case CMD_UPDATE:
+                result = execute_update(sql);
+                break;
+            case CMD_SELECT:
+                result = execute_select(sql);
+                break;
+            case CMD_DELETE:
+                result = execute_delete(sql);
+                break;
+            default:
+                send_error_response("Unknown SQL command");
+                return 1;
+        }
+        
+        if (result != 0) {
+            send_error_response("Error executing SQL command");
+            return 1;
+        }
+        
+        return 0;
+    #endif
+}
+
 
 // Implementation of strcasestr
 char *strncasestr(const char *haystack, const char *needle)

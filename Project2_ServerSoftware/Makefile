@@ -32,3 +32,9 @@ install: sql.cgi
 clean:
 	-rm -f $(OBJS) wserver wclient spin.cgi sql.cgi cgi-bin/sql.cgi
 
+
+sql.cgi: sql.c
+	$(CC) $(CFLAGS) -o sql.cgi sql.c
+
+unit_test: sql.c
+	$(CC) $(CFLAGS) -DUNIT_TEST -o sql_test sql.c
