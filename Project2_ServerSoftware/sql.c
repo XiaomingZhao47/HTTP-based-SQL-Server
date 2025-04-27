@@ -562,3 +562,226 @@ int execute_create(char *sql) {
     
     return 0;
 }
+
+// Execute INSERT INTO SQL command
+int execute_insert(char *sql) {
+    // Example: INSERT INTO movies VALUES (2, 'Lyle, Lyle, Crocodile', 100);
+    char table_name[32];
+    char *p = strstr(sql, "INSERT INTO");
+    
+    if (p == NULL) {
+        send_error_response("Invalid INSERT syntax");
+        return -1;
+    }
+    
+    p += 11; // Skip "INSERT INTO"
+    
+    // Skip whitespace
+    while (*p && isspace(*p)) p++;
+    
+    // Get table name
+    int i = 0;
+    while (*p && !isspace(*p) && i < 31) {
+        table_name[i++] = *p++;
+    }
+    table_name[i] = '\0';
+    
+    // Verify table exists and get schema
+    TableSchema schema;
+    if (find_table_schema(table_name, &schema) != 0) {
+        send_error_response("Table does not exist");
+        return -1;
+    }
+    
+    // Look for VALUES keyword
+    p = strstr(p, "VALUES");
+    if (p == NULL) {
+        send_error_response("Invalid INSERT syntax: missing VALUES keyword");
+        return -1;
+    }
+    
+    p += 6; // Skip "VALUES"
+    
+    // Find opening parenthesis
+    while (*p && *p != '(') p++;
+    if (*p != '(') {
+        send_error_response("Invalid INSERT syntax: missing opening parenthesis");
+        return -1;
+    }
+    p++; // Skip '('
+    
+    // Parse values
+    char values[MAX_COLS][256];
+    int value_count = 0;
+    
+    while (*p && *p != ')' && value_count < MAX_COLS) {
+        // Skip whitespace
+        while (*p && isspace(*p)) p++;
+        
+        if (*p == '\'' || *p == '"') {
+            // String value
+            char quote = *p;
+            p++; // Skip quote
+            
+            i = 0;
+            while (*p && *p != quote && i < 255) {
+                values[value_count][i++] = *p++;
+            }
+            values[value_count][i] = '\0';
+            
+            if (*p != quote) {
+                send_error_response("Invalid string value: missing closing quote");
+                return -1;
+            }
+            p++; // Skip closing quote
+        } else {
+            // Numeric value
+            i = 0;
+            while (*p && *p != ',' && *p != ')' && !isspace(*p) && i < 255) {
+                values[value_count][i++] = *p++;
+            }
+            values[value_count][i] = '\0';
+        }
+        
+        value_count++;
+        
+        // Skip whitespace
+        while (*p && isspace(*p)) p++;
+        
+        if (*p == ',') {
+            p++; // Skip ','
+        } else if (*p != ')') {
+            send_error_response("Invalid INSERT syntax: expected comma or closing parenthesis");
+            return -1;
+        }
+    }
+    
+    if (value_count != schema.num_columns) {
+        send_error_response("Number of values does not match number of columns");
+        return -1;
+    }
+    
+    // Open table data file
+    char data_filename[64];
+    sprintf(data_filename, "%s.dat", table_name);
+    
+    int data_fd = open(data_filename, O_RDWR);
+    if (data_fd < 0) {
+        send_error_response("Failed to open table data file");
+        return -1;
+    }
+    
+    // Find the last block
+    char block[BLOCK_SIZE];
+    int block_num = 0;
+    int last_block = 0;
+    
+    while (1) {
+        if (read_block(data_fd, block_num, block) < 0) {
+            close(data_fd);
+            send_error_response("Failed to read data block");
+            return -1;
+        }
+        
+        last_block = block_num;
+        
+        // Check if there's a next block
+        char next_block[5];
+        strncpy(next_block, block + BLOCK_SIZE - 4, 4);
+        next_block[4] = '\0';
+        
+        if (strcmp(next_block, END_MARKER) == 0) {
+            break; // This is the last block
+        }
+        
+        block_num = atoi(next_block);
+    }
+    
+    // Calculate record size
+    int record_size = 0;
+    for (i = 0; i < schema.num_columns; i++) {
+        record_size += schema.columns[i].size;
+    }
+    
+    // Find position to insert new record
+    int pos = 0;
+    while (pos < BLOCK_SIZE - 4 && block[pos] != '.') {
+        pos++;
+    }
+    
+    // Check if there's enough space in the current block
+    if (pos + record_size > BLOCK_SIZE - 4) {
+        // Need a new block
+        int new_block_num = create_new_block(data_fd);
+        if (new_block_num < 0) {
+            close(data_fd);
+            send_error_response("Failed to create new data block");
+            return -1;
+        }
+        
+        // Update current block to point to new block
+        char next_block_str[5];
+        sprintf(next_block_str, "%04d", new_block_num);
+        strncpy(block + BLOCK_SIZE - 4, next_block_str, 4);
+        
+        if (write_block(data_fd, last_block, block) < 0) {
+            close(data_fd);
+            send_error_response("Failed to update last block");
+            return -1;
+        }
+        
+        // Use new block for record
+        memset(block, '.', BLOCK_SIZE);
+        strcpy(block + BLOCK_SIZE - 4, END_MARKER);
+        pos = 0;
+        last_block = new_block_num;
+    }
+    
+    // Format and insert record data
+    char record[BLOCK_SIZE];
+    int record_pos = 0;
+    
+    for (i = 0; i < schema.num_columns; i++) {
+        if (schema.columns[i].type == TYPE_CHAR) {
+            // Fixed-length char field, pad with spaces
+            int len = strlen(values[i]);
+            int j;
+            
+            for (j = 0; j < schema.columns[i].size; j++) {
+                if (j < len) {
+                    record[record_pos++] = values[i][j];
+                } else {
+                    record[record_pos++] = ' ';
+                }
+            }
+        } else if (schema.columns[i].type == TYPE_SMALLINT) {
+            // 4-byte integer stored as fixed-width string
+            sprintf(record + record_pos, "%04d", atoi(values[i]));
+            record_pos += 4;
+        } else if (schema.columns[i].type == TYPE_INTEGER) {
+            // 8-byte integer stored as fixed-width string
+            sprintf(record + record_pos, "%08d", atoi(values[i]));
+            record_pos += 8;
+        }
+    }
+    
+    // Copy record to block
+    strncpy(block + pos, record, record_pos);
+    
+    // Write block back to file
+    if (write_block(data_fd, last_block, block) < 0) {
+        close(data_fd);
+        send_error_response("Failed to write data block");
+        return -1;
+    }
+    
+    close(data_fd);
+    
+    // Send success response
+    char response[256];
+    sprintf(response, "Record inserted successfully into table %s", table_name);
+    send_http_response("text/plain", response);
+    
+    return 0;
+}
+
