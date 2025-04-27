@@ -168,15 +168,15 @@ void send_error_response(char *error_msg) {
 
 // Parse SQL command and determine its type
 int parse_sql_command(char *sql, int *command_type) {
-    if (strncasestr(sql, "CREATE", 6) == 0) {
+    if (strncasecmp(sql, "CREATE", 6) == 0) {
         *command_type = CMD_CREATE;
-    } else if (strncasestr(sql, "INSERT", 6) == 0) {
+    } else if (strncasecmp(sql, "INSERT", 6) == 0) {
         *command_type = CMD_INSERT;
-    } else if (strncasestr(sql, "UPDATE", 6) == 0) {
+    } else if (strncasecmp(sql, "UPDATE", 6) == 0) {
         *command_type = CMD_UPDATE;
-    } else if (strncasestr(sql, "SELECT", 6) == 0) {
+    } else if (strncasecmp(sql, "SELECT", 6) == 0) {
         *command_type = CMD_SELECT;
-    } else if (strncasestr(sql, "DELETE", 6) == 0) {
+    } else if (strncasecmp(sql, "DELETE", 6) == 0) {
         *command_type = CMD_DELETE;
     } else {
         return -1; // Unknown command
@@ -353,4 +353,212 @@ int find_table_schema(char *table_name, TableSchema *schema) {
     
     close(schema_fd);
     return -1; // Table not found
+}
+
+// Execute CREATE TABLE SQL command
+int execute_create(char *sql) {
+    // Example: CREATE TABLE movies (id smallint, title char(30), length int);
+    char table_name[32];
+    char *p = strstr(sql, "CREATE TABLE");
+    
+    if (p == NULL) {
+        send_error_response("Invalid CREATE TABLE syntax");
+        return -1;
+    }
+    
+    p += 12; // Skip "CREATE TABLE"
+    
+    // Skip whitespace
+    while (*p && isspace(*p)) p++;
+    
+    // Get table name
+    int i = 0;
+    while (*p && !isspace(*p) && *p != '(' && i < 31) {
+        table_name[i++] = *p++;
+    }
+    table_name[i] = '\0';
+    
+    // Check if table already exists
+    TableSchema schema;
+    if (find_table_schema(table_name, &schema) == 0) {
+        send_error_response("Table already exists");
+        return -1;
+    }
+    
+    // Find opening parenthesis
+    while (*p && *p != '(') p++;
+    if (*p != '(') {
+        send_error_response("Invalid CREATE TABLE syntax: missing opening parenthesis");
+        return -1;
+    }
+    p++; // Skip '('
+    
+    // Parse column definitions
+    TableSchema new_schema;
+    strcpy(new_schema.name, table_name);
+    new_schema.num_columns = 0;
+    
+    while (*p && *p != ')') {
+        // Skip whitespace
+        while (*p && isspace(*p)) p++;
+        
+        // Get column name
+        i = 0;
+        while (*p && !isspace(*p) && *p != ',' && i < 31) {
+            new_schema.columns[new_schema.num_columns].name[i++] = *p++;
+        }
+        new_schema.columns[new_schema.num_columns].name[i] = '\0';
+        
+        // Skip whitespace
+        while (*p && isspace(*p)) p++;
+        
+        // Get column type
+        if (strncasecmp(p, "char", 4) == 0) {
+            new_schema.columns[new_schema.num_columns].type = TYPE_CHAR;
+            p += 4; // Skip "char"
+            
+            // Parse size in char(N)
+            while (*p && *p != '(') p++;
+            if (*p != '(') {
+                send_error_response("Invalid char type: missing size");
+                return -1;
+            }
+            p++; // Skip '('
+            
+            char size_str[10];
+            i = 0;
+            while (*p && isdigit(*p) && i < 9) {
+                size_str[i++] = *p++;
+            }
+            size_str[i] = '\0';
+            
+            new_schema.columns[new_schema.num_columns].size = atoi(size_str);
+            
+            // Skip to closing parenthesis
+            while (*p && *p != ')') p++;
+            if (*p != ')') {
+                send_error_response("Invalid char type: missing closing parenthesis");
+                return -1;
+            }
+            p++; // Skip ')'
+        } else if (strncasecmp(p, "smallint", 8) == 0) {
+            new_schema.columns[new_schema.num_columns].type = TYPE_SMALLINT;
+            new_schema.columns[new_schema.num_columns].size = 4; // 4-byte fixed size
+            p += 8; // Skip "smallint"
+        } else if (strncasecmp(p, "int", 3) == 0 || strncasecmp(p, "integer", 7) == 0) {
+            new_schema.columns[new_schema.num_columns].type = TYPE_INTEGER;
+            new_schema.columns[new_schema.num_columns].size = 8; // 8-byte fixed size
+            p += (strncasecmp(p, "int", 3) == 0) ? 3 : 7; // Skip "int" or "integer"
+        } else {
+            send_error_response("Invalid column type");
+            return -1;
+        }
+        
+        new_schema.num_columns++;
+        
+        // Skip to comma or closing parenthesis
+        while (*p && isspace(*p)) p++;
+        if (*p == ',') {
+            p++; // Skip ','
+        } else if (*p != ')') {
+            send_error_response("Invalid CREATE TABLE syntax: expected comma or closing parenthesis");
+            return -1;
+        }
+    }
+    
+    if (new_schema.num_columns == 0) {
+        send_error_response("No columns defined for table");
+        return -1;
+    }
+    
+    // Create schema file if it doesn't exist
+    int schema_fd = open("schema.dat", O_RDWR | O_CREAT, 0644);
+    if (schema_fd < 0) {
+        send_error_response("Failed to create schema file");
+        return -1;
+    }
+    
+    // Find a free block or create a new one
+    int block_num = find_free_block(schema_fd);
+    if (block_num < 0) {
+        block_num = create_new_block(schema_fd);
+        if (block_num < 0) {
+            close(schema_fd);
+            send_error_response("Failed to create schema block");
+            return -1;
+        }
+    }
+    
+    // Write schema to block
+    char block[BLOCK_SIZE];
+    memset(block, '.', BLOCK_SIZE); // Fill with dots for clarity in examples
+    
+    // Format schema string: tablename|col1:type1,col2:type2,...;
+    char schema_str[BLOCK_SIZE - 8]; // Leave room for next block pointer
+    int pos = sprintf(schema_str, "%s|", new_schema.name);
+    
+    for (i = 0; i < new_schema.num_columns; i++) {
+        if (i > 0) {
+            pos += sprintf(schema_str + pos, ",");
+        }
+        
+        if (new_schema.columns[i].type == TYPE_CHAR) {
+            pos += sprintf(schema_str + pos, "%s:char(%d)", 
+                          new_schema.columns[i].name, 
+                          new_schema.columns[i].size);
+        } else if (new_schema.columns[i].type == TYPE_SMALLINT) {
+            pos += sprintf(schema_str + pos, "%s:smallint", 
+                          new_schema.columns[i].name);
+        } else if (new_schema.columns[i].type == TYPE_INTEGER) {
+            pos += sprintf(schema_str + pos, "%s:int", 
+                          new_schema.columns[i].name);
+        }
+    }
+    
+    schema_str[pos] = ';';
+    schema_str[pos + 1] = '\0';
+    
+    // Copy schema string to block
+    strncpy(block, schema_str, strlen(schema_str));
+    
+    // Set next block pointer to END_MARKER
+    strcpy(block + BLOCK_SIZE - 4, END_MARKER);
+    
+    // Write block to file
+    if (write_block(schema_fd, block_num, block) < 0) {
+        close(schema_fd);
+        send_error_response("Failed to write schema block");
+        return -1;
+    }
+    
+    close(schema_fd);
+    
+    // Create table data file
+    char data_filename[64];
+    sprintf(data_filename, "%s.dat", table_name);
+    
+    int data_fd = open(data_filename, O_RDWR | O_CREAT, 0644);
+    if (data_fd < 0) {
+        send_error_response("Failed to create table data file");
+        return -1;
+    }
+    
+    // Initialize first block
+    memset(block, '.', BLOCK_SIZE);
+    strcpy(block + BLOCK_SIZE - 4, END_MARKER);
+    
+    if (write_block(data_fd, 0, block) < 0) {
+        close(data_fd);
+        send_error_response("Failed to initialize table data file");
+        return -1;
+    }
+    
+    close(data_fd);
+    
+    // Send success response
+    char response[256];
+    sprintf(response, "Table %s created successfully", table_name);
+    send_http_response("text/plain", response);
+    
+    return 0;
 }
