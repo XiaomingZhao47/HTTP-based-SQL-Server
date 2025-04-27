@@ -785,3 +785,326 @@ int execute_insert(char *sql) {
     return 0;
 }
 
+//imeplement Execute UPDATE SQL command
+int execute_update(char *sql) {
+    // Example: UPDATE movies SET length = 150 WHERE id = 2;
+    char table_name[32];
+    char set_column[32];
+    char set_value[256];
+    Condition condition;
+    int has_condition = 0;
+    
+    // Parse the UPDATE command
+    char *p = strstr(sql, "UPDATE");
+    if (p == NULL) {
+        send_error_response("Invalid UPDATE syntax");
+        return -1;
+    }
+    
+    p += 6; // Skip "UPDATE"
+    
+    // Skip whitespace
+    while (*p && isspace(*p)) p++;
+    
+    // Get table name
+    int i = 0;
+    while (*p && !isspace(*p) && i < 31) {
+        table_name[i++] = *p++;
+    }
+    table_name[i] = '\0';
+    
+    // Verify table exists and get schema
+    TableSchema schema;
+    if (find_table_schema(table_name, &schema) != 0) {
+        send_error_response("Table does not exist");
+        return -1;
+    }
+    
+    // Look for SET keyword
+    p = strstr(p, "SET");
+    if (p == NULL) {
+        send_error_response("Invalid UPDATE syntax: missing SET keyword");
+        return -1;
+    }
+    
+    p += 3; // Skip "SET"
+    
+    // Skip whitespace
+    while (*p && isspace(*p)) p++;
+    
+    // Get column name to update
+    i = 0;
+    while (*p && !isspace(*p) && *p != '=' && i < 31) {
+        set_column[i++] = *p++;
+    }
+    set_column[i] = '\0';
+    
+    // Skip to = sign
+    while (*p && *p != '=') p++;
+    if (*p != '=') {
+        send_error_response("Invalid UPDATE syntax: missing = after column name");
+        return -1;
+    }
+    p++; // Skip '='
+    
+    // Skip whitespace
+    while (*p && isspace(*p)) p++;
+    
+    // Get value to set
+    i = 0;
+    if (*p == '\'' || *p == '"') {
+        // String value
+        char quote = *p;
+        p++; // Skip quote
+        
+        while (*p && *p != quote && i < 255) {
+            set_value[i++] = *p++;
+        }
+        
+        if (*p != quote) {
+            send_error_response("Invalid string value: missing closing quote");
+            return -1;
+        }
+        p++; // Skip closing quote
+    } else {
+        // Numeric value
+        while (*p && !isspace(*p) && *p != ';' && *p != 'W' && i < 255) {
+            set_value[i++] = *p++;
+        }
+    }
+    set_value[i] = '\0';
+    
+    // Check for WHERE clause
+    p = strstr(p, "WHERE");
+    if (p != NULL) {
+        p += 5; // Skip "WHERE"
+        has_condition = 1;
+        
+        // Skip whitespace
+        while (*p && isspace(*p)) p++;
+        
+        // Get column name in condition
+        i = 0;
+        while (*p && !isspace(*p) && *p != '=' && *p != '<' && *p != '>' && *p != '!' && i < 31) {
+            condition.column_name[i++] = *p++;
+        }
+        condition.column_name[i] = '\0';
+        
+        // Skip whitespace
+        while (*p && isspace(*p)) p++;
+        
+        // Get operator
+        if (*p == '=') {
+            condition.op = OP_EQUAL;
+            p++;
+        } else if (*p == '!' && *(p+1) == '=') {
+            condition.op = OP_NOT_EQUAL;
+            p += 2;
+        } else if (*p == '>') {
+            condition.op = OP_GREATER;
+            p++;
+        } else if (*p == '<') {
+            condition.op = OP_LESS;
+            p++;
+        } else {
+            send_error_response("Invalid operator in WHERE clause");
+            return -1;
+        }
+        
+        // Skip whitespace
+        while (*p && isspace(*p)) p++;
+        
+        // Get condition value
+        i = 0;
+        if (*p == '\'' || *p == '"') {
+            // String value
+            char quote = *p;
+            p++; // Skip quote
+            
+            while (*p && *p != quote && i < 255) {
+                condition.value[i++] = *p++;
+            }
+            
+            if (*p != quote) {
+                send_error_response("Invalid string value: missing closing quote");
+                return -1;
+            }
+        } else {
+            // Numeric value
+            while (*p && !isspace(*p) && *p != ';' && i < 255) {
+                condition.value[i++] = *p++;
+            }
+        }
+        condition.value[i] = '\0';
+    }
+    
+    // Open table data file
+    char data_filename[64];
+    sprintf(data_filename, "%s.dat", table_name);
+    
+    int data_fd = open(data_filename, O_RDWR);
+    if (data_fd < 0) {
+        send_error_response("Failed to open table data file");
+        return -1;
+    }
+    
+    // Find column index to update
+    int col_idx = -1;
+    for (i = 0; i < schema.num_columns; i++) {
+        if (strcmp(schema.columns[i].name, set_column) == 0) {
+            col_idx = i;
+            break;
+        }
+    }
+    
+    if (col_idx == -1) {
+        close(data_fd);
+        send_error_response("Column not found in table");
+        return -1;
+    }
+    
+    // Find condition column index if there's a condition
+    int cond_col_idx = -1;
+    if (has_condition) {
+        for (i = 0; i < schema.num_columns; i++) {
+            if (strcmp(schema.columns[i].name, condition.column_name) == 0) {
+                cond_col_idx = i;
+                break;
+            }
+        }
+        
+        if (cond_col_idx == -1) {
+            close(data_fd);
+            send_error_response("Condition column not found in table");
+            return -1;
+        }
+    }
+    
+    // Process blocks and update records
+    char block[BLOCK_SIZE];
+    int block_num = 0;
+    int records_updated = 0;
+    
+    while (1) {
+        if (read_block(data_fd, block_num, block) < 0) {
+            break;
+        }
+        
+        // Calculate offset to start of first record in this block
+        int pos = 0;
+        int updated_block = 0;
+        
+        while (pos < BLOCK_SIZE - 4) {
+            // Skip dots (empty space)
+            if (block[pos] == '.') {
+                pos++;
+                continue;
+            }
+            
+            // Check if we've reached the end of records in this block
+            char test_byte = block[pos];
+            if (test_byte == '\0' || test_byte == '.') {
+                break;
+            }
+            
+            // Found a record, check if it matches the condition
+            int match = 1;
+            if (has_condition) {
+                // Calculate offset to condition column value
+                int cond_offset = 0;
+                for (i = 0; i < cond_col_idx; i++) {
+                    cond_offset += schema.columns[i].size;
+                }
+                
+                // Extract condition column value
+                char cond_value[256];
+                int cond_size = schema.columns[cond_col_idx].size;
+                strncpy(cond_value, block + pos + cond_offset, cond_size);
+                cond_value[cond_size] = '\0';
+                
+                // Trim trailing spaces if it's a CHAR field
+                if (schema.columns[cond_col_idx].type == TYPE_CHAR) {
+                    int j = cond_size - 1;
+                    while (j >= 0 && cond_value[j] == ' ') {
+                        cond_value[j--] = '\0';
+                    }
+                }
+                
+                // Compare values based on operator
+                switch (condition.op) {
+                    case OP_EQUAL:
+                        match = (strcmp(cond_value, condition.value) == 0);
+                        break;
+                    case OP_NOT_EQUAL:
+                        match = (strcmp(cond_value, condition.value) != 0);
+                        break;
+                    case OP_GREATER:
+                        match = (atoi(cond_value) > atoi(condition.value));
+                        break;
+                    case OP_LESS:
+                        match = (atoi(cond_value) < atoi(condition.value));
+                        break;
+                }
+            }
+            
+            if (match) {
+                // Calculate offset to column to update
+                int update_offset = 0;
+                for (i = 0; i < col_idx; i++) {
+                    update_offset += schema.columns[i].size;
+                }
+                
+                // Update the column value
+                if (schema.columns[col_idx].type == TYPE_CHAR) {
+                    int char_size = schema.columns[col_idx].size;
+                    memset(block + pos + update_offset, ' ', char_size); // Fill with spaces
+                    int set_len = strlen(set_value);
+                    strncpy(block + pos + update_offset, set_value, set_len < char_size ? set_len : char_size);
+                } else if (schema.columns[col_idx].type == TYPE_SMALLINT) {
+                    sprintf(block + pos + update_offset, "%04d", atoi(set_value));
+                } else if (schema.columns[col_idx].type == TYPE_INTEGER) {
+                    sprintf(block + pos + update_offset, "%08d", atoi(set_value));
+                }
+                
+                records_updated++;
+                updated_block = 1;
+            }
+            
+            // Move to next record
+            int record_size = 0;
+            for (i = 0; i < schema.num_columns; i++) {
+                record_size += schema.columns[i].size;
+            }
+            pos += record_size;
+        }
+        
+        // Write block back if updated
+        if (updated_block) {
+            if (write_block(data_fd, block_num, block) < 0) {
+                close(data_fd);
+                send_error_response("Failed to write updated block");
+                return -1;
+            }
+        }
+        
+        // Check if there's a next block
+        char next_block[5];
+        strncpy(next_block, block + BLOCK_SIZE - 4, 4);
+        next_block[4] = '\0';
+        
+        if (strcmp(next_block, END_MARKER) == 0) {
+            break; // No more blocks
+        }
+        
+        block_num = atoi(next_block);
+    }
+    
+    close(data_fd);
+    
+    // Send success response
+    char response[256];
+    sprintf(response, "Updated %d record(s) in table %s", records_updated, table_name);
+    send_http_response("text/plain", response);
+    
+    return 0;
+}
