@@ -197,7 +197,7 @@ int create_new_block(int fd) {
     
     char block[BLOCK_SIZE];
     memset(block, '.', BLOCK_SIZE);
-    strcpy(block + BLOCK_SIZE - 4, END_MARKER);
+    strncpy(block + BLOCK_SIZE - 4, END_MARKER, 4);
     
     if (write_block(fd, block_num, block) < 0) {
         return -1;
@@ -522,7 +522,7 @@ int execute_create(char *sql) {
     strncpy(block, schema_str, strlen(schema_str));
     
     // Set next block pointer to END_MARKER
-    strcpy(block + BLOCK_SIZE - 4, END_MARKER);
+    strncpy(block + BLOCK_SIZE - 4, END_MARKER, 4);
     
     // Write block to file
     if (write_block(schema_fd, block_num, block) < 0) {
@@ -545,7 +545,7 @@ int execute_create(char *sql) {
     
     // Initialize first block
     memset(block, '.', BLOCK_SIZE);
-    strcpy(block + BLOCK_SIZE - 4, END_MARKER);
+    strncpy(block + BLOCK_SIZE - 4, END_MARKER, 4);
     
     if (write_block(data_fd, 0, block) < 0) {
         close(data_fd);
@@ -732,7 +732,7 @@ int execute_insert(char *sql) {
         
         // Use new block for record
         memset(block, '.', BLOCK_SIZE);
-        strcpy(block + BLOCK_SIZE - 4, END_MARKER);
+        strncpy(block + BLOCK_SIZE - 4, END_MARKER, 4);
         pos = 0;
         last_block = new_block_num;
     }
