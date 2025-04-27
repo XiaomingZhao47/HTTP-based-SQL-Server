@@ -5,4 +5,8 @@ Project2_ServerSoftware/wserver.o
 Project2_ServerSoftware/spin.cgi
 Project2_ServerSoftware/wclient
 Project2_ServerSoftware/wclient.o
+Project2_ServerSoftware/cgi-bin
+Project2_ServerSoftware/movies.dat
+Project2_ServerSoftware/schema.dat
+Project2_ServerSoftware/sql.cgi
 .DS_Store
