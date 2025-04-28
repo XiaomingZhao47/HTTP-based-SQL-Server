@@ -1758,13 +1758,13 @@ int execute_select(char *sql)
             // Skip dots (empty space)
             if (block[pos] == '.')
             {
-                pos++;
+                pos = ((pos / record_size) + 1) * record_size;
                 continue;
             }
 
             // Check if we've reached the end of records in this block
             char test_byte = block[pos];
-            if (test_byte == '\0' || test_byte == '.')
+            if (pos >= BLOCK_SIZE - 4 || (test_byte == '\0' && pos % record_size == 0))
             {
                 break;
             }
@@ -1789,21 +1789,48 @@ int execute_select(char *sql)
                     }
                 }
 
-                // Compare values based on operator
-                switch (condition.op)
+                // Compare values based on type and operator
+                if (schema.columns[cond_col_idx].type == TYPE_SMALLINT ||
+                    schema.columns[cond_col_idx].type == TYPE_INTEGER)
                 {
-                case OP_EQUAL:
-                    match = (strcmp(cond_value, condition.value) == 0);
-                    break;
-                case OP_NOT_EQUAL:
-                    match = (strcmp(cond_value, condition.value) != 0);
-                    break;
-                case OP_GREATER:
-                    match = (atoi(cond_value) > atoi(condition.value));
-                    break;
-                case OP_LESS:
-                    match = (atoi(cond_value) < atoi(condition.value));
-                    break;
+                    // Numeric comparison
+                    int db_num = atoi(cond_value);
+                    int cond_num = atoi(condition.value);
+
+                    switch (condition.op)
+                    {
+                    case OP_EQUAL:
+                        match = (db_num == cond_num);
+                        break;
+                    case OP_NOT_EQUAL:
+                        match = (db_num != cond_num);
+                        break;
+                    case OP_GREATER:
+                        match = (db_num > cond_num);
+                        break;
+                    case OP_LESS:
+                        match = (db_num < cond_num);
+                        break;
+                    }
+                }
+                else
+                {
+                    // String comparison for non-numeric types
+                    switch (condition.op)
+                    {
+                    case OP_EQUAL:
+                        match = (strcmp(cond_value, condition.value) == 0);
+                        break;
+                    case OP_NOT_EQUAL:
+                        match = (strcmp(cond_value, condition.value) != 0);
+                        break;
+                    case OP_GREATER:
+                        match = (strcmp(cond_value, condition.value) > 0);
+                        break;
+                    case OP_LESS:
+                        match = (strcmp(cond_value, condition.value) < 0);
+                        break;
+                    }
                 }
             }
 
@@ -2064,7 +2091,7 @@ int execute_delete(char *sql)
 
             // Check if we've reached the end of records in this block
             char test_byte = block[pos];
-            if (test_byte == '\0' || test_byte == '.')
+            if (pos >= BLOCK_SIZE - 4 || (test_byte == '\0' && pos % record_size == 0))
             {
                 break;
             }
@@ -2089,21 +2116,48 @@ int execute_delete(char *sql)
                     }
                 }
 
-                // Compare values based on operator
-                switch (condition.op)
+                // Compare values based on type and operator
+                if (schema.columns[cond_col_idx].type == TYPE_SMALLINT ||
+                    schema.columns[cond_col_idx].type == TYPE_INTEGER)
                 {
-                case OP_EQUAL:
-                    match = (strcmp(cond_value, condition.value) == 0);
-                    break;
-                case OP_NOT_EQUAL:
-                    match = (strcmp(cond_value, condition.value) != 0);
-                    break;
-                case OP_GREATER:
-                    match = (atoi(cond_value) > atoi(condition.value));
-                    break;
-                case OP_LESS:
-                    match = (atoi(cond_value) < atoi(condition.value));
-                    break;
+                    // Numeric comparison
+                    int db_num = atoi(cond_value);
+                    int cond_num = atoi(condition.value);
+
+                    switch (condition.op)
+                    {
+                    case OP_EQUAL:
+                        match = (db_num == cond_num);
+                        break;
+                    case OP_NOT_EQUAL:
+                        match = (db_num != cond_num);
+                        break;
+                    case OP_GREATER:
+                        match = (db_num > cond_num);
+                        break;
+                    case OP_LESS:
+                        match = (db_num < cond_num);
+                        break;
+                    }
+                }
+                else
+                {
+                    // String comparison for non-numeric types
+                    switch (condition.op)
+                    {
+                    case OP_EQUAL:
+                        match = (strcmp(cond_value, condition.value) == 0);
+                        break;
+                    case OP_NOT_EQUAL:
+                        match = (strcmp(cond_value, condition.value) != 0);
+                        break;
+                    case OP_GREATER:
+                        match = (strcmp(cond_value, condition.value) > 0);
+                        break;
+                    case OP_LESS:
+                        match = (strcmp(cond_value, condition.value) < 0);
+                        break;
+                    }
                 }
             }
 
