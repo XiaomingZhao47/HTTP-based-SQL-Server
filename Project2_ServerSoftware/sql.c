@@ -1753,23 +1753,21 @@ int execute_select(char *sql)
         // Process records in this block
         int pos = 0;
 
-        while (pos < BLOCK_SIZE - 4)
+        while (pos <= BLOCK_SIZE - 4 - record_size)
         {
-            // Skip dots (empty space)
-            if (block[pos] == '.')
+            // Skip any sequences of dots (deleted records) or null bytes
+            while (pos < BLOCK_SIZE - 4 && (block[pos] == '.' || block[pos] == '\0'))
             {
-                pos = ((pos / record_size) + 1) * record_size;
-                continue;
+                pos++;
             }
 
-            // Check if we've reached the end of records in this block
-            char test_byte = block[pos];
-            if (pos >= BLOCK_SIZE - 4 || (test_byte == '\0' && pos % record_size == 0))
+            // Check if we've gone too far
+            if (pos > BLOCK_SIZE - 4 - record_size)
             {
                 break;
             }
 
-            // Found a record, check if it matches the condition
+            // Found a valid record, check if it matches the condition
             int match = 1;
             if (has_condition)
             {
@@ -1868,7 +1866,7 @@ int execute_select(char *sql)
                 resp_len += sprintf(resp_ptr + resp_len, "\n");
             }
 
-            // Move to next record
+            // Move to next record position
             pos += record_size;
         }
 
@@ -1888,7 +1886,7 @@ int execute_select(char *sql)
     close(data_fd);
 
     // Add summary line
-    resp_len += sprintf(resp_ptr + resp_len, "\n%d record(s) found.\n", records_found);
+    resp_len += sprintf(resp_ptr + resp_len, "%d record(s) found.\n", records_found);
 
     // Send response
     send_http_response("text/plain", response);
