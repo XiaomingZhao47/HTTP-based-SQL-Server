@@ -9,4 +9,6 @@ Project2_ServerSoftware/cgi-bin
 Project2_ServerSoftware/movies.dat
 Project2_ServerSoftware/schema.dat
 Project2_ServerSoftware/sql.cgi
+Project2_ServerSoftware/sql_test
+Project2_ServerSoftware/test_table.dat
 .DS_Store

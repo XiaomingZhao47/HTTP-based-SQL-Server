@@ -85,11 +85,11 @@ void run_unit_tests()
     char create_sql[] = "CREATE TABLE test_table (id smallint, name char(20), age int)";
     if (execute_create(create_sql) == 0)
     {
-        printf("PASSED\n");
+        printf("\nPASSED\n");
     }
     else
     {
-        printf("FAILED\n");
+        printf("\nFAILED\n");
     }
 
     // Test INSERT

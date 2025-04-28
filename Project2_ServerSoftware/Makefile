@@ -32,7 +32,7 @@ install: sql.cgi
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 clean:
-	-rm -f $(OBJS) wserver wclient spin.cgi sql.cgi cgi-bin/sql.cgi movies.dat schema.dat
+	-rm -f $(OBJS) wserver wclient spin.cgi sql.cgi cgi-bin/sql.cgi movies.dat schema.dat sql_test test_table.dat
 
 unit_test: sql.c
 	$(CC) $(CFLAGS) -DUNIT_TEST -o sql_test sql.c
