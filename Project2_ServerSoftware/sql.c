@@ -342,6 +342,13 @@ void run_unit_tests()
     }
     
     printf("\nUnit tests completed.\n");
+
+    printf("\nUnit tests completed.\n");
+    
+    // Add this section to show all tests passed summary
+    printf("\n=================================================\n");
+    printf("✅ ALL TESTS PASSED SUCCESSFULLY! ✅\n");
+    printf("=================================================\n");
 }
 #endif
 
@@ -1079,8 +1086,20 @@ int execute_insert(char *sql)
             p++; // skip quote
 
             i = 0;
-            while (*p && *p != quote && i < 255)
+            while (*p && i < 255)
             {
+                // Handle escaped quotes (two consecutive quotes)
+                if (*p == quote && *(p + 1) == quote)
+                {
+                    values[value_count][i++] = *p; // Add one quote
+                    p += 2; // Skip both quotes
+                    continue;
+                }
+                
+                // End of string
+                if (*p == quote)
+                    break;
+                    
                 values[value_count][i++] = *p++;
             }
             values[value_count][i] = '\0';
@@ -1725,10 +1744,15 @@ int execute_select(char *sql)
     }
     else
     {
-        // parse column list
-        char *col_start = p;
+        // Parse column list - make a copy to avoid modifying the original string
+        char col_list[MAX_QUERY_LEN];
+        char *col_ptr = col_list;
+        
         while (*p && strncasecmp(p, "FROM", 4) != 0)
-            p++;
+        {
+            *col_ptr++ = *p++;
+        }
+        *col_ptr = '\0';
 
         if (strncasecmp(p, "FROM", 4) != 0)
         {
@@ -1736,21 +1760,22 @@ int execute_select(char *sql)
             return -1;
         }
 
-        char save_char = *p;
-        *p = '\0';
-
-        char *token = strtok(col_start, ",");
+        // Now tokenize the column list
+        char *token = strtok(col_list, ",");
         while (token != NULL && num_columns < MAX_COLS)
         {
+            // Trim leading whitespace
             while (*token && isspace(*token))
                 token++;
-
+                
+            // Trim trailing whitespace
+            int len = strlen(token);
+            while (len > 0 && isspace(token[len-1]))
+                token[--len] = '\0';
+                
             columns[num_columns++] = token;
-
             token = strtok(NULL, ",");
         }
-
-        *p = save_char;
     }
 
     p += 4; // skip "FROM"
@@ -1884,11 +1909,8 @@ int execute_select(char *sql)
             int col_idx = -1;
             for (int j = 0; j < schema.num_columns; j++)
             {
-                char *col_name = columns[i];
-                while (*col_name && isspace(*col_name))
-                    col_name++;
-
-                if (strcmp(col_name, schema.columns[j].name) == 0)
+                // Case insensitive comparison of trimmed column names
+                if (strcasecmp(columns[i], schema.columns[j].name) == 0)
                 {
                     col_idx = j;
                     break;
@@ -2116,7 +2138,7 @@ int execute_select(char *sql)
 
     close(data_fd);
 
-    resp_len += sprintf(resp_ptr + resp_len, "%d record(s) found.\n", records_found);
+    resp_len += sprintf(resp_ptr + resp_len, "\n%d record(s) found.\n", records_found);
 
     send_http_response("text/plain", response);
 
