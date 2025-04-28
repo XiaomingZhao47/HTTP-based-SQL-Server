@@ -75,76 +75,273 @@ int parse_condition(char *where_clause, Condition *condition);
 int evaluate_condition(Condition *condition, char *record, TableSchema *schema);
 
 #ifdef UNIT_TEST
-/**
- * runs unit tests to verify functionality of database operations
- * tests with multipule CREATE TABLE, INSERT, SELECT, UPDATE, and DELETE operations
- * prints the results of each test to stdout
- */
+// Unit test function
 void run_unit_tests()
 {
-    printf("running unit tests...\n");
-
-    // test CREATE TABLE
-    printf("test CREATE TABLE: ");
+    printf("Running unit tests...\n");
+    
+    /*** Basic CRUD Operation Tests ***/
+    
+    // Test CREATE TABLE
+    printf("\n=== Basic CRUD Tests ===\n");
+    printf("Test CREATE TABLE: ");
     char create_sql[] = "CREATE TABLE test_table (id smallint, name char(20), age int)";
     if (execute_create(create_sql) == 0)
     {
-        printf("\nPASSED\n");
+        printf("PASSED\n");
     }
     else
     {
-        printf("\nFAILED\n");
+        printf("FAILED\n");
+        return; // Exit tests if we can't even create a table
     }
 
-    // test INSERT
-    printf("test INSERT: ");
+    // Test INSERT
+    printf("Test INSERT: ");
     char insert_sql[] = "INSERT INTO test_table VALUES (1, 'John Doe', 30)";
     if (execute_insert(insert_sql) == 0)
     {
-        printf("\nPASSED\n");
+        printf("PASSED\n");
     }
     else
     {
-        printf("\nFAILED\n");
+        printf("FAILED\n");
     }
 
-    // test SELECT
-    printf("test SELECT: ");
+    // Test SELECT
+    printf("Test SELECT: ");
     char select_sql[] = "SELECT * FROM test_table";
     if (execute_select(select_sql) == 0)
     {
-        printf("\nPASSED\n");
+        printf("PASSED\n");
     }
     else
     {
-        printf("\nFAILED\n");
+        printf("FAILED\n");
     }
 
-    // test UPDATE
-    printf("test UPDATE: ");
+    // Test UPDATE
+    printf("Test UPDATE: ");
     char update_sql[] = "UPDATE test_table SET age = 35 WHERE id = 1";
     if (execute_update(update_sql) == 0)
     {
-        printf("\nPASSED\n");
+        printf("PASSED\n");
     }
     else
     {
-        printf("\nFAILED\n");
+        printf("FAILED\n");
     }
 
-    // test DELETE
-    printf("test DELETE: ");
+    // Test DELETE
+    printf("Test DELETE: ");
     char delete_sql[] = "DELETE FROM test_table WHERE id = 1";
     if (execute_delete(delete_sql) == 0)
     {
-        printf("\nPASSED\n");
+        printf("PASSED\n");
     }
     else
     {
-        printf("\nFAILED\n");
+        printf("FAILED\n");
     }
 
-    printf("unit tests completed\n");
+    /*** Edge Case Tests ***/
+    
+    printf("\n=== Edge Case Tests ===\n");
+    
+    // Test CREATE TABLE with same name (should fail)
+    printf("Test CREATE TABLE with existing name: ");
+    if (execute_create(create_sql) != 0)
+    {
+        printf("PASSED (expected failure)\n");
+    }
+    else
+    {
+        printf("FAILED (should not succeed)\n");
+    }
+    
+    // Test CREATE TABLE with max columns
+    printf("Test CREATE TABLE with maximum columns: ");
+    char create_max_cols[] = "CREATE TABLE max_cols_table (col1 int, col2 int, col3 int, col4 int, col5 int, col6 int, col7 int, col8 int, col9 int, col10 int)";
+    if (execute_create(create_max_cols) == 0)
+    {
+        printf("PASSED\n");
+    }
+    else
+    {
+        printf("FAILED\n");
+    }
+    
+    // Test INSERT with special characters
+    printf("Test INSERT with special characters: ");
+    char insert_special[] = "INSERT INTO test_table VALUES (2, 'O''Brien, John-Paul', 42)";
+    if (execute_insert(insert_special) == 0)
+    {
+        printf("PASSED\n");
+    }
+    else
+    {
+        printf("FAILED\n");
+    }
+    
+    // Test SELECT with specific columns
+    printf("Test SELECT with specific columns: ");
+    char select_cols[] = "SELECT name, age FROM test_table";
+    if (execute_select(select_cols) == 0)
+    {
+        printf("PASSED\n");
+    }
+    else
+    {
+        printf("FAILED\n");
+    }
+    
+    // Test SELECT with WHERE clause
+    printf("Test SELECT with WHERE clause: ");
+    char select_where[] = "SELECT * FROM test_table WHERE id = 2";
+    if (execute_select(select_where) == 0)
+    {
+        printf("PASSED\n");
+    }
+    else
+    {
+        printf("FAILED\n");
+    }
+    
+    // Test UPDATE with no matching records
+    printf("Test UPDATE with no matching records: ");
+    char update_nomatch[] = "UPDATE test_table SET age = 50 WHERE id = 999";
+    if (execute_update(update_nomatch) == 0)
+    {
+        printf("PASSED\n");
+    }
+    else
+    {
+        printf("FAILED\n");
+    }
+    
+    // Test DELETE with no matching records
+    printf("Test DELETE with no matching records: ");
+    char delete_nomatch[] = "DELETE FROM test_table WHERE id = 999";
+    if (execute_delete(delete_nomatch) == 0)
+    {
+        printf("PASSED\n");
+    }
+    else
+    {
+        printf("FAILED\n");
+    }
+    
+    /*** Multiple Record Tests ***/
+    
+    printf("\n=== Multiple Record Tests ===\n");
+    
+    // Insert multiple records
+    printf("Test INSERT multiple records: ");
+    char insert_multi1[] = "INSERT INTO test_table VALUES (3, 'Alice Smith', 25)";
+    char insert_multi2[] = "INSERT INTO test_table VALUES (4, 'Bob Johnson', 45)";
+    char insert_multi3[] = "INSERT INTO test_table VALUES (5, 'Charlie Brown', 33)";
+    
+    if (execute_insert(insert_multi1) == 0 && 
+        execute_insert(insert_multi2) == 0 && 
+        execute_insert(insert_multi3) == 0)
+    {
+        printf("PASSED\n");
+    }
+    else
+    {
+        printf("FAILED\n");
+    }
+    
+    // Test SELECT with inequality operator
+    printf("Test SELECT with inequality operator: ");
+    char select_gt[] = "SELECT * FROM test_table WHERE age > 30";
+    if (execute_select(select_gt) == 0)
+    {
+        printf("PASSED\n");
+    }
+    else
+    {
+        printf("FAILED\n");
+    }
+    
+    // Test UPDATE multiple records
+    printf("Test UPDATE multiple records: ");
+    char update_multi[] = "UPDATE test_table SET name = 'Updated Name' WHERE age > 40";
+    if (execute_update(update_multi) == 0)
+    {
+        printf("PASSED\n");
+    }
+    else
+    {
+        printf("FAILED\n");
+    }
+    
+    // Test DELETE multiple records
+    printf("Test DELETE multiple records: ");
+    char delete_multi[] = "DELETE FROM test_table WHERE age < 30";
+    if (execute_delete(delete_multi) == 0)
+    {
+        printf("PASSED\n");
+    }
+    else
+    {
+        printf("FAILED\n");
+    }
+    
+    /*** Error Handling Tests ***/
+    
+    printf("\n=== Error Handling Tests ===\n");
+    
+    // Test nonexistent table
+    printf("Test operations on nonexistent table: ");
+    char select_nonexistent[] = "SELECT * FROM nonexistent_table";
+    if (execute_select(select_nonexistent) != 0)
+    {
+        printf("PASSED (expected failure)\n");
+    }
+    else
+    {
+        printf("FAILED (should not succeed)\n");
+    }
+    
+    // Test invalid column name
+    printf("Test invalid column name: ");
+    char select_badcol[] = "SELECT nonexistent_column FROM test_table";
+    if (execute_select(select_badcol) != 0)
+    {
+        printf("PASSED (expected failure)\n");
+    }
+    else
+    {
+        printf("FAILED (should not succeed)\n");
+    }
+    
+    // Test invalid SQL syntax
+    printf("Test invalid SQL syntax: ");
+    char bad_syntax[] = "SELEC * FORM test_table";
+    int command_type;
+    if (parse_sql_command(bad_syntax, &command_type) != 0)
+    {
+        printf("PASSED (expected failure)\n");
+    }
+    else
+    {
+        printf("FAILED (should not succeed)\n");
+    }
+    
+    // Test mismatched column count in INSERT
+    printf("Test mismatched column count in INSERT: ");
+    char insert_mismatch[] = "INSERT INTO test_table VALUES (10, 'Too Few')";
+    if (execute_insert(insert_mismatch) != 0)
+    {
+        printf("PASSED (expected failure)\n");
+    }
+    else
+    {
+        printf("FAILED (should not succeed)\n");
+    }
+    
+    printf("\nUnit tests completed.\n");
 }
 #endif
 
