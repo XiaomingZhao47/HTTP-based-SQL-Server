@@ -110,7 +110,7 @@ Then run the test script manually
 ```
 ./test_sql.sh
 ```
-## Unit Testing
+## Remote Testing
 
 To run unit tests without using any server functionality
 ```
