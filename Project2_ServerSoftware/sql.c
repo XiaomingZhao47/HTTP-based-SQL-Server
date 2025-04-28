@@ -14,7 +14,7 @@
 #define MAX_QUERY_LEN 1024
 #define END_MARKER "XXXX"
 
-// Data types
+// data types
 #define TYPE_CHAR 1
 #define TYPE_SMALLINT 2
 #define TYPE_INTEGER 3
@@ -32,7 +32,7 @@
 #define OP_GREATER 3
 #define OP_LESS 4
 
-// Structure to store column information
+// structure to store column information
 typedef struct
 {
     char name[32];
@@ -40,7 +40,7 @@ typedef struct
     int size;
 } Column;
 
-// Structure to store table schema
+// structure to store table schema
 typedef struct
 {
     char name[32];
@@ -48,7 +48,7 @@ typedef struct
     Column columns[MAX_COLS];
 } TableSchema;
 
-// Structure for WHERE clause condition
+// structure for WHERE clause condition
 typedef struct
 {
     char column_name[32];
@@ -56,7 +56,7 @@ typedef struct
     char value[256];
 } Condition;
 
-// Function declarations
+// functions
 int parse_sql_command(char *sql, int *command_type);
 int execute_create(char *sql);
 int execute_insert(char *sql);
@@ -75,13 +75,17 @@ int parse_condition(char *where_clause, Condition *condition);
 int evaluate_condition(Condition *condition, char *record, TableSchema *schema);
 
 #ifdef UNIT_TEST
-// Unit test function
+/**
+ * runs unit tests to verify functionality of database operations
+ * tests with multipule CREATE TABLE, INSERT, SELECT, UPDATE, and DELETE operations
+ * prints the results of each test to stdout
+ */
 void run_unit_tests()
 {
-    printf("Running unit tests...\n");
+    printf("running unit tests...\n");
 
-    // Test CREATE TABLE
-    printf("Test CREATE TABLE: ");
+    // test CREATE TABLE
+    printf("test CREATE TABLE: ");
     char create_sql[] = "CREATE TABLE test_table (id smallint, name char(20), age int)";
     if (execute_create(create_sql) == 0)
     {
@@ -92,66 +96,72 @@ void run_unit_tests()
         printf("\nFAILED\n");
     }
 
-    // Test INSERT
-    printf("Test INSERT: ");
+    // test INSERT
+    printf("test INSERT: ");
     char insert_sql[] = "INSERT INTO test_table VALUES (1, 'John Doe', 30)";
     if (execute_insert(insert_sql) == 0)
     {
-        printf("PASSED\n");
+        printf("\nPASSED\n");
     }
     else
     {
-        printf("FAILED\n");
+        printf("\nFAILED\n");
     }
 
-    // Test SELECT
-    printf("Test SELECT: ");
+    // test SELECT
+    printf("test SELECT: ");
     char select_sql[] = "SELECT * FROM test_table";
     if (execute_select(select_sql) == 0)
     {
-        printf("PASSED\n");
+        printf("\nPASSED\n");
     }
     else
     {
-        printf("FAILED\n");
+        printf("\nFAILED\n");
     }
 
-    // Test UPDATE
-    printf("Test UPDATE: ");
+    // test UPDATE
+    printf("test UPDATE: ");
     char update_sql[] = "UPDATE test_table SET age = 35 WHERE id = 1";
     if (execute_update(update_sql) == 0)
     {
-        printf("PASSED\n");
+        printf("\nPASSED\n");
     }
     else
     {
-        printf("FAILED\n");
+        printf("\nFAILED\n");
     }
 
-    // Test DELETE
-    printf("Test DELETE: ");
+    // test DELETE
+    printf("test DELETE: ");
     char delete_sql[] = "DELETE FROM test_table WHERE id = 1";
     if (execute_delete(delete_sql) == 0)
     {
-        printf("PASSED\n");
+        printf("\nPASSED\n");
     }
     else
     {
-        printf("FAILED\n");
+        printf("\nFAILED\n");
     }
 
-    printf("Unit tests completed.\n");
+    printf("unit tests completed\n");
 }
 #endif
 
-// Main
+/**
+ * main entry for the application
+ * in unit test mode, runs the unit tests
+ * in normal CGI mode, processes a SQL query from the QUERY_STRING environment variable
+ *
+ * @return 0 on success, 1 on error
+ */
 int main(void)
 {
 #ifdef UNIT_TEST
     run_unit_tests();
     return 0;
 #else
-    // Normal CGI processing
+    // CGI processing
     char *query_string = getenv("QUERY_STRING");
 
     if (query_string == NULL)
@@ -160,7 +170,7 @@ int main(void)
         return 1;
     }
 
-    // Decode URL-encoded query string
+    // URL-encoded query string
     char sql[MAX_QUERY_LEN];
     int i = 0, j = 0;
 
@@ -185,7 +195,7 @@ int main(void)
     }
     sql[j] = '\0';
 
-    // Parse and execute SQL command
+    // execute SQL command
     int command_type;
     int result = parse_sql_command(sql, &command_type);
 
@@ -227,7 +237,13 @@ int main(void)
 #endif
 }
 
-// Implementation of strcasestr
+/**
+ * case-insensitive of strstr that searches for needle in haystack
+ *
+ * @param haystack string to search in
+ * @param needle substring to search for
+ * @return pointer to the first occurrence of needle in haystack, or NULL if not found
+ */
 char *strncasestr(const char *haystack, const char *needle)
 {
     size_t needle_len = strlen(needle);
@@ -244,7 +260,12 @@ char *strncasestr(const char *haystack, const char *needle)
     return NULL;
 }
 
-// Send HTTP response
+/**
+ * sends HTTP response with the specified content type and body
+ *
+ * @param content_type The HTTP content type (e.g., "text/plain")
+ * @param body The response body content
+ */
 void send_http_response(char *content_type, char *body)
 {
     printf("Content-Type: %s\r\n", content_type);
@@ -253,7 +274,11 @@ void send_http_response(char *content_type, char *body)
     fflush(stdout);
 }
 
-// Send error response
+/**
+ * sends an HTTP error response with the specified error message.
+ *
+ * @param error_msg error message to include in the response
+ */
 void send_error_response(char *error_msg)
 {
     char body[1024];
@@ -261,7 +286,13 @@ void send_error_response(char *error_msg)
     send_http_response("text/plain", body);
 }
 
-// Parse SQL command and determine its type
+/**
+ * parse SQL command string and determines its type
+ *
+ * @param sql The SQL command string to parse
+ * @param command_type Pointer to store the determined command type
+ * @return 0 on success, -1 if command type is unknown
+ */
 int parse_sql_command(char *sql, int *command_type)
 {
     if (strncasecmp(sql, "CREATE", 6) == 0)
@@ -286,13 +317,18 @@ int parse_sql_command(char *sql, int *command_type)
     }
     else
     {
-        return -1; // Unknown command
+        return -1; // base case
     }
 
     return 0;
 }
 
-// Create a new block in the file
+/**
+ * creates a new block in the database file.
+ *
+ * @param fd file descriptor of the database file
+ * @return block number of the newly created block, or -1 on error
+ */
 int create_new_block(int fd)
 {
     struct stat st;
@@ -316,7 +352,14 @@ int create_new_block(int fd)
     return block_num;
 }
 
-// Read a block from file
+/**
+ * reads a block from the database file.
+ *
+ * @param fd file descriptor of the database file
+ * @param block_num block number to read
+ * @param block buffer to store the read block data
+ * @return 0 on success, -1 on error
+ */
 int read_block(int fd, int block_num, char *block)
 {
     off_t offset = block_num * BLOCK_SIZE;
@@ -334,7 +377,14 @@ int read_block(int fd, int block_num, char *block)
     return 0;
 }
 
-// Write a block to file
+/**
+ * writes a block to the database file.
+ *
+ * @param fd file descriptor of the database file
+ * @param block_num block number to write to
+ * @param block block data to write
+ * @return 0 on success, -1 on error
+ */
 int write_block(int fd, int block_num, char *block)
 {
     off_t offset = block_num * BLOCK_SIZE;
@@ -352,7 +402,12 @@ int write_block(int fd, int block_num, char *block)
     return 0;
 }
 
-// Find a free block in the file (marked as empty)
+/**
+ * finds a free block in the database file.
+ *
+ * @param fd file descriptor of the database file
+ * @return block number of a free block, or -1 if no free blocks found
+ */
 int find_free_block(int fd)
 {
     struct stat st;
@@ -372,7 +427,7 @@ int find_free_block(int fd)
             continue;
         }
 
-        // Check if block is empty (contains only dots)
+        // check if block is empty
         int empty = 1;
         for (int j = 0; j < BLOCK_SIZE - 4; j++)
         {
@@ -389,16 +444,22 @@ int find_free_block(int fd)
         }
     }
 
-    return -1; // No free blocks found
+    return -1;
 }
 
-// Find a table schema in the schema file
+/**
+ * finds the schema for a specified table.
+ *
+ * @param table_name name of the table to find
+ * @param schema pointer to store the found schema
+ * @return 0 on success, -1 if table not found
+ */
 int find_table_schema(char *table_name, TableSchema *schema)
 {
     int schema_fd = open("schema.dat", O_RDONLY);
     if (schema_fd < 0)
     {
-        return -1; // Schema file doesn't exist, so table doesn't exist
+        return -1; // schema file DNE, so table DNE
     }
 
     char block[BLOCK_SIZE];
@@ -412,7 +473,7 @@ int find_table_schema(char *table_name, TableSchema *schema)
             return -1;
         }
 
-        // Look for table name in this block
+        // look for table name in this block
         char *schema_str = block;
         char *table_str = strtok(schema_str, "|");
 
@@ -420,10 +481,8 @@ int find_table_schema(char *table_name, TableSchema *schema)
         {
             if (strcmp(table_str, table_name) == 0)
             {
-                // Found the table, parse schema
                 strcpy(schema->name, table_name);
 
-                // Parse columns
                 char *columns_str = strtok(NULL, ";");
                 if (columns_str == NULL)
                 {
@@ -471,33 +530,37 @@ int find_table_schema(char *table_name, TableSchema *schema)
                 }
 
                 close(schema_fd);
-                return 0; // Success
+                return 0;
             }
 
             table_str = strtok(NULL, "|");
         }
 
-        // Check if there's a next block
+        // check if there's a next block
         char next_block[5];
         strncpy(next_block, block + BLOCK_SIZE - 4, 4);
         next_block[4] = '\0';
 
         if (strcmp(next_block, END_MARKER) == 0)
         {
-            break; // No more blocks
+            break;
         }
 
         block_num = atoi(next_block);
     }
 
     close(schema_fd);
-    return -1; // Table not found
+    return -1;
 }
 
-// Execute CREATE TABLE SQL command
+/**
+ * executes a CREATE TABLE SQL command
+ *
+ * @param sql CREATE TABLE SQL command string
+ * @return 0 on success, -1 on error
+ */
 int execute_create(char *sql)
 {
-    // Example: CREATE TABLE movies (id smallint, title char(30), length int);
     char table_name[32];
     char *p = strstr(sql, "CREATE TABLE");
 
@@ -507,13 +570,13 @@ int execute_create(char *sql)
         return -1;
     }
 
-    p += 12; // Skip "CREATE TABLE"
+    p += 12; // skip "CREATE TABLE"
 
-    // Skip whitespace
+    // skip whitespace
     while (*p && isspace(*p))
         p++;
 
-    // Get table name
+    // get table name
     int i = 0;
     while (*p && !isspace(*p) && *p != '(' && i < 31)
     {
@@ -521,36 +584,36 @@ int execute_create(char *sql)
     }
     table_name[i] = '\0';
 
-    // Check if table already exists
+    // check if table already exists
     TableSchema schema;
     if (find_table_schema(table_name, &schema) == 0)
     {
-        send_error_response("Table already exists");
+        send_error_response("table already exists");
         return -1;
     }
 
-    // Find opening parenthesis
+    // find opening parenthesis
     while (*p && *p != '(')
         p++;
     if (*p != '(')
     {
-        send_error_response("Invalid CREATE TABLE syntax: missing opening parenthesis");
+        send_error_response("invalid CREATE syntax: missing opening parenthesis");
         return -1;
     }
-    p++; // Skip '('
+    p++; // skip '('
 
-    // Parse column definitions
+    // parse column definitions
     TableSchema new_schema;
     strcpy(new_schema.name, table_name);
     new_schema.num_columns = 0;
 
     while (*p && *p != ')')
     {
-        // Skip whitespace
+        // skip whitespace
         while (*p && isspace(*p))
             p++;
 
-        // Get column name
+        // get column name
         i = 0;
         while (*p && !isspace(*p) && *p != ',' && i < 31)
         {
@@ -558,17 +621,17 @@ int execute_create(char *sql)
         }
         new_schema.columns[new_schema.num_columns].name[i] = '\0';
 
-        // Skip whitespace
+        // skip whitespace
         while (*p && isspace(*p))
             p++;
 
-        // Get column type
+        // get column type
         if (strncasecmp(p, "char", 4) == 0)
         {
             new_schema.columns[new_schema.num_columns].type = TYPE_CHAR;
-            p += 4; // Skip "char"
+            p += 4; // skip "char"
 
-            // Parse size in char(N)
+            // parse size in char(N)
             while (*p && *p != '(')
                 p++;
             if (*p != '(')
@@ -576,7 +639,7 @@ int execute_create(char *sql)
                 send_error_response("Invalid char type: missing size");
                 return -1;
             }
-            p++; // Skip '('
+            p++; // skip '('
 
             char size_str[10];
             i = 0;
@@ -588,65 +651,65 @@ int execute_create(char *sql)
 
             new_schema.columns[new_schema.num_columns].size = atoi(size_str);
 
-            // Skip to closing parenthesis
+            // skip to closing parenthesis
             while (*p && *p != ')')
                 p++;
             if (*p != ')')
             {
-                send_error_response("Invalid char type: missing closing parenthesis");
+                send_error_response("invalid char type: missing closing parenthesis");
                 return -1;
             }
-            p++; // Skip ')'
+            p++; // skip ')'
         }
         else if (strncasecmp(p, "smallint", 8) == 0)
         {
             new_schema.columns[new_schema.num_columns].type = TYPE_SMALLINT;
             new_schema.columns[new_schema.num_columns].size = 4; // 4-byte fixed size
-            p += 8;                                              // Skip "smallint"
+            p += 8;                                              // skip "smallint"
         }
         else if (strncasecmp(p, "int", 3) == 0 || strncasecmp(p, "integer", 7) == 0)
         {
             new_schema.columns[new_schema.num_columns].type = TYPE_INTEGER;
             new_schema.columns[new_schema.num_columns].size = 8; // 8-byte fixed size
-            p += (strncasecmp(p, "int", 3) == 0) ? 3 : 7;        // Skip "int" or "integer"
+            p += (strncasecmp(p, "int", 3) == 0) ? 3 : 7;        // skip "int" or "integer"
         }
         else
         {
-            send_error_response("Invalid column type");
+            send_error_response("invalid column type");
             return -1;
         }
 
         new_schema.num_columns++;
 
-        // Skip to comma or closing parenthesis
+        // skip to comma or closing parenthesis
         while (*p && isspace(*p))
             p++;
         if (*p == ',')
         {
-            p++; // Skip ','
+            p++; // skip ','
         }
         else if (*p != ')')
         {
-            send_error_response("Invalid CREATE TABLE syntax: expected comma or closing parenthesis");
+            send_error_response("invalid CREATE TABLE syntax: expected comma or closing parenthesis");
             return -1;
         }
     }
 
     if (new_schema.num_columns == 0)
     {
-        send_error_response("No columns defined for table");
+        send_error_response("no columns defined for table");
         return -1;
     }
 
-    // Create schema file if it doesn't exist
+    // create schema file if it doesn't exist
     int schema_fd = open("schema.dat", O_RDWR | O_CREAT, 0644);
     if (schema_fd < 0)
     {
-        send_error_response("Failed to create schema file");
+        send_error_response("failed to create schema file");
         return -1;
     }
 
-    // Find a free block or create a new one
+    // find a free block or create a new one
     int block_num = find_free_block(schema_fd);
     if (block_num < 0)
     {
@@ -654,17 +717,17 @@ int execute_create(char *sql)
         if (block_num < 0)
         {
             close(schema_fd);
-            send_error_response("Failed to create schema block");
+            send_error_response("failed to create schema block");
             return -1;
         }
     }
 
-    // Write schema to block
+    // write schema to block
     char block[BLOCK_SIZE];
-    memset(block, '.', BLOCK_SIZE); // Fill with dots for clarity in examples
+    memset(block, '.', BLOCK_SIZE); // fill with dots for clarity in examples
 
-    // Format schema string: tablename|col1:type1,col2:type2,...;
-    char schema_str[BLOCK_SIZE - 8]; // Leave room for next block pointer
+    // format schema string: tablename|col1:type1,col2:type2,...;
+    char schema_str[BLOCK_SIZE - 8];
     int pos = sprintf(schema_str, "%s|", new_schema.name);
 
     for (i = 0; i < new_schema.num_columns; i++)
@@ -695,74 +758,78 @@ int execute_create(char *sql)
     schema_str[pos] = ';';
     schema_str[pos + 1] = '\0';
 
-    // Copy schema string to block
+    // cp schema string to block
     strncpy(block, schema_str, strlen(schema_str));
 
-    // Set next block pointer to END_MARKER
+    // next block pointer to END_MARKER
     strncpy(block + BLOCK_SIZE - 4, END_MARKER, 4);
 
-    // Write block to file
+    // block to file
     if (write_block(schema_fd, block_num, block) < 0)
     {
         close(schema_fd);
-        send_error_response("Failed to write schema block");
+        send_error_response("failed to write schema block");
         return -1;
     }
 
     close(schema_fd);
 
-    // Create table data file
+    // create table data file
     char data_filename[64];
     sprintf(data_filename, "%s.dat", table_name);
 
     int data_fd = open(data_filename, O_RDWR | O_CREAT, 0644);
     if (data_fd < 0)
     {
-        send_error_response("Failed to create table data file");
+        send_error_response("failed to create table data file");
         return -1;
     }
 
-    // Initialize first block
+    // first block
     memset(block, '.', BLOCK_SIZE);
     strncpy(block + BLOCK_SIZE - 4, END_MARKER, 4);
 
     if (write_block(data_fd, 0, block) < 0)
     {
         close(data_fd);
-        send_error_response("Failed to initialize table data file");
+        send_error_response("failed to initialize table data file");
         return -1;
     }
 
     close(data_fd);
 
-    // Send success response
+    // send success response
     char response[256];
-    sprintf(response, "Table %s created successfully", table_name);
+    sprintf(response, "table %s created successfully", table_name);
     send_http_response("text/plain", response);
 
     return 0;
 }
 
-// Execute INSERT INTO SQL command
+/**
+ * executes INSERT INTO SQL command
+ *
+ * @param sql INSERT INTO SQL command string
+ * @return 0 on success, -1 on error
+ */
 int execute_insert(char *sql)
 {
-    // Example: INSERT INTO movies VALUES (2, 'Lyle, Lyle, Crocodile', 100);
     char table_name[32];
     char *p = strstr(sql, "INSERT INTO");
 
     if (p == NULL)
     {
-        send_error_response("Invalid INSERT syntax");
+        send_error_response("invalid INSERT syntax");
         return -1;
     }
 
-    p += 11; // Skip "INSERT INTO"
+    p += 11; // skip "INSERT INTO"
 
-    // Skip whitespace
+    // skip whitespace
     while (*p && isspace(*p))
         p++;
 
-    // Get table name
+    // get table name
     int i = 0;
     while (*p && !isspace(*p) && i < 31)
     {
@@ -770,7 +837,7 @@ int execute_insert(char *sql)
     }
     table_name[i] = '\0';
 
-    // Verify table exists and get schema
+    // verify table exists and get schema
     TableSchema schema;
     if (find_table_schema(table_name, &schema) != 0)
     {
@@ -778,7 +845,7 @@ int execute_insert(char *sql)
         return -1;
     }
 
-    // Look for VALUES keyword
+    // look for VALUES keyword
     p = strstr(p, "VALUES");
     if (p == NULL)
     {
@@ -786,9 +853,9 @@ int execute_insert(char *sql)
         return -1;
     }
 
-    p += 6; // Skip "VALUES"
+    p += 6; // skip "VALUES"
 
-    // Find opening parenthesis
+    // find opening parenthesis
     while (*p && *p != '(')
         p++;
     if (*p != '(')
@@ -796,23 +863,23 @@ int execute_insert(char *sql)
         send_error_response("Invalid INSERT syntax: missing opening parenthesis");
         return -1;
     }
-    p++; // Skip '('
+    p++; // skip '('
 
-    // Parse values
+    // parse values
     char values[MAX_COLS][256];
     int value_count = 0;
 
     while (*p && *p != ')' && value_count < MAX_COLS)
     {
-        // Skip whitespace
+        // skip whitespace
         while (*p && isspace(*p))
             p++;
 
         if (*p == '\'' || *p == '"')
         {
-            // String value
+            // string value
             char quote = *p;
-            p++; // Skip quote
+            p++; // skip quote
 
             i = 0;
             while (*p && *p != quote && i < 255)
@@ -823,14 +890,14 @@ int execute_insert(char *sql)
 
             if (*p != quote)
             {
-                send_error_response("Invalid string value: missing closing quote");
+                send_error_response("invalid string value: missing closing quote");
                 return -1;
             }
-            p++; // Skip closing quote
+            p++; // skip closing quote
         }
         else
         {
-            // Numeric value
+            // num value
             i = 0;
             while (*p && *p != ',' && *p != ')' && !isspace(*p) && i < 255)
             {
@@ -841,7 +908,7 @@ int execute_insert(char *sql)
 
         value_count++;
 
-        // Skip whitespace
+        // skip whitespace
         while (*p && isspace(*p))
             p++;
 
@@ -851,29 +918,29 @@ int execute_insert(char *sql)
         }
         else if (*p != ')')
         {
-            send_error_response("Invalid INSERT syntax: expected comma or closing parenthesis");
+            send_error_response("invalid INSERT syntax: expected comma or closing parenthesis");
             return -1;
         }
     }
 
     if (value_count != schema.num_columns)
     {
-        send_error_response("Number of values does not match number of columns");
+        send_error_response("number of values does not match number of columns");
         return -1;
     }
 
-    // Open table data file
+    // table data file
     char data_filename[64];
     sprintf(data_filename, "%s.dat", table_name);
 
     int data_fd = open(data_filename, O_RDWR);
     if (data_fd < 0)
     {
-        send_error_response("Failed to open table data file");
+        send_error_response("failed to open table data file");
         return -1;
     }
 
-    // Find the last block
+    // find the last block
     char block[BLOCK_SIZE];
     int block_num = 0;
     int last_block = 0;
@@ -883,52 +950,52 @@ int execute_insert(char *sql)
         if (read_block(data_fd, block_num, block) < 0)
         {
             close(data_fd);
-            send_error_response("Failed to read data block");
+            send_error_response("failed to read data block");
             return -1;
         }
 
         last_block = block_num;
 
-        // Check if there's a next block
+        // check if there is next block
         char next_block[5];
         strncpy(next_block, block + BLOCK_SIZE - 4, 4);
         next_block[4] = '\0';
 
         if (strcmp(next_block, END_MARKER) == 0)
         {
-            break; // This is the last block
+            break; // last block
         }
 
         block_num = atoi(next_block);
     }
 
-    // Calculate record size
+    // calculate record size
     int record_size = 0;
     for (i = 0; i < schema.num_columns; i++)
     {
         record_size += schema.columns[i].size;
     }
 
-    // Find position to insert new record
+    // find pos to insert new record
     int pos = 0;
     while (pos < BLOCK_SIZE - 4 && block[pos] != '.')
     {
         pos++;
     }
 
-    // Check if there's enough space in the current block
+    // check if there is enough space
     if (pos + record_size > BLOCK_SIZE - 4)
     {
-        // Need a new block
+        // new block
         int new_block_num = create_new_block(data_fd);
         if (new_block_num < 0)
         {
             close(data_fd);
-            send_error_response("Failed to create new data block");
+            send_error_response("failed to create new data block");
             return -1;
         }
 
-        // Update current block to point to new block
+        // update current block to point to new block
         char next_block_str[5];
         sprintf(next_block_str, "%04d", new_block_num);
         strncpy(block + BLOCK_SIZE - 4, next_block_str, 4);
@@ -936,18 +1003,18 @@ int execute_insert(char *sql)
         if (write_block(data_fd, last_block, block) < 0)
         {
             close(data_fd);
-            send_error_response("Failed to update last block");
+            send_error_response("failed to update last block");
             return -1;
         }
 
-        // Use new block for record
+        // new block for record
         memset(block, '.', BLOCK_SIZE);
         strncpy(block + BLOCK_SIZE - 4, END_MARKER, 4);
         pos = 0;
         last_block = new_block_num;
     }
 
-    // Format and insert record data
+    // format and insert record data
     char record[BLOCK_SIZE];
     int record_pos = 0;
 
@@ -955,7 +1022,7 @@ int execute_insert(char *sql)
     {
         if (schema.columns[i].type == TYPE_CHAR)
         {
-            // Fixed-length char field, pad with spaces
+            // pad with spaces
             int len = strlen(values[i]);
             int j;
 
@@ -985,52 +1052,56 @@ int execute_insert(char *sql)
         }
     }
 
-    // Copy record to block
+    // cp record to block
     strncpy(block + pos, record, record_pos);
 
-    // Write block back to file
+    // w block back to file
     if (write_block(data_fd, last_block, block) < 0)
     {
         close(data_fd);
-        send_error_response("Failed to write data block");
+        send_error_response("failed to write data block");
         return -1;
     }
 
     close(data_fd);
 
-    // Send success response
+    // send success response
     char response[256];
-    sprintf(response, "Record inserted successfully into table %s", table_name);
+    sprintf(response, "record inserted into table %s", table_name);
     send_http_response("text/plain", response);
 
     return 0;
 }
 
-// imeplement Execute UPDATE SQL command
+/**
+ * executes UPDATE SQL command
+ *
+ * @param sql UPDATE SQL command string
+ * @return 0 on success, -1 on error
+ */
 int execute_update(char *sql)
 {
-    // Example: UPDATE movies SET length = 150 WHERE id = 2;
     char table_name[32];
     char set_column[32];
     char set_value[256];
     Condition condition;
     int has_condition = 0;
 
-    // Parse the UPDATE command
+    // [P]arse the UPDATE command
     char *p = strstr(sql, "UPDATE");
     if (p == NULL)
     {
-        send_error_response("Invalid UPDATE syntax");
+        send_error_response("invalid UPDATE syntax");
         return -1;
     }
 
-    p += 6; // Skip "UPDATE"
+    p += 6; // skip "UPDATE"
 
-    // Skip whitespace
+    // skip whitespace
     while (*p && isspace(*p))
         p++;
 
-    // Get table name
+    // get table name
     int i = 0;
     while (*p && !isspace(*p) && i < 31)
     {
@@ -1038,7 +1109,7 @@ int execute_update(char *sql)
     }
     table_name[i] = '\0';
 
-    // Verify table exists and get schema
+    // verify table exists and get schema
     TableSchema schema;
     if (find_table_schema(table_name, &schema) != 0)
     {
@@ -1046,7 +1117,7 @@ int execute_update(char *sql)
         return -1;
     }
 
-    // Look for SET keyword
+    // look for SET keyword
     p = strstr(p, "SET");
     if (p == NULL)
     {
@@ -1054,13 +1125,13 @@ int execute_update(char *sql)
         return -1;
     }
 
-    p += 3; // Skip "SET"
+    p += 3; // skip "SET"
 
-    // Skip whitespace
+    // skip whitespace
     while (*p && isspace(*p))
         p++;
 
-    // Get column name to update
+    // get column name to update
     i = 0;
     while (*p && !isspace(*p) && *p != '=' && i < 31)
     {
@@ -1068,27 +1139,27 @@ int execute_update(char *sql)
     }
     set_column[i] = '\0';
 
-    // Skip to = sign
+    // skip to = sign
     while (*p && *p != '=')
         p++;
     if (*p != '=')
     {
-        send_error_response("Invalid UPDATE syntax: missing = after column name");
+        send_error_response("invalid UPDATE syntax: missing = after column name");
         return -1;
     }
-    p++; // Skip '='
+    p++; // skip '='
 
-    // Skip whitespace
+    // skip whitespace
     while (*p && isspace(*p))
         p++;
 
-    // Get value to set
+    // get value to set
     i = 0;
     if (*p == '\'' || *p == '"')
     {
-        // String value
+        // string value
         char quote = *p;
-        p++; // Skip quote
+        p++; // skip
 
         while (*p && *p != quote && i < 255)
         {
@@ -1097,14 +1168,14 @@ int execute_update(char *sql)
 
         if (*p != quote)
         {
-            send_error_response("Invalid string value: missing closing quote");
+            send_error_response("invalid string value: missing closing quote");
             return -1;
         }
-        p++; // Skip closing quote
+        p++; // skip closing
     }
     else
     {
-        // Numeric value
+        // num value
         while (*p && !isspace(*p) && *p != ';' && *p != 'W' && i < 255)
         {
             set_value[i++] = *p++;
@@ -1112,18 +1183,18 @@ int execute_update(char *sql)
     }
     set_value[i] = '\0';
 
-    // Check for WHERE clause
+    // check for WHERE
     p = strstr(p, "WHERE");
     if (p != NULL)
     {
-        p += 5; // Skip "WHERE"
+        p += 5; // skip "WHERE"
         has_condition = 1;
 
         // Skip whitespace
         while (*p && isspace(*p))
             p++;
 
-        // Get column name in condition
+        // get column name in condition
         i = 0;
         while (*p && !isspace(*p) && *p != '=' && *p != '<' && *p != '>' && *p != '!' && i < 31)
         {
@@ -1131,11 +1202,11 @@ int execute_update(char *sql)
         }
         condition.column_name[i] = '\0';
 
-        // Skip whitespace
+        // skip whitespace
         while (*p && isspace(*p))
             p++;
 
-        // Get operator
+        // get operator
         if (*p == '=')
         {
             condition.op = OP_EQUAL;
@@ -1162,17 +1233,17 @@ int execute_update(char *sql)
             return -1;
         }
 
-        // Skip whitespace
+        // skip whitespace
         while (*p && isspace(*p))
             p++;
 
-        // Get condition value
+        // get condition value
         i = 0;
         if (*p == '\'' || *p == '"')
         {
-            // String value
+            // str value
             char quote = *p;
-            p++; // Skip quote
+            p++; // skip quote
 
             while (*p && *p != quote && i < 255)
             {
@@ -1181,13 +1252,13 @@ int execute_update(char *sql)
 
             if (*p != quote)
             {
-                send_error_response("Invalid string value: missing closing quote");
+                send_error_response("invalid string value: missing closing quote");
                 return -1;
             }
         }
         else
         {
-            // Numeric value
+            // numeric value
             while (*p && !isspace(*p) && *p != ';' && i < 255)
             {
                 condition.value[i++] = *p++;
@@ -1196,18 +1267,18 @@ int execute_update(char *sql)
         condition.value[i] = '\0';
     }
 
-    // Open table data file
+    // table data file
     char data_filename[64];
     sprintf(data_filename, "%s.dat", table_name);
 
     int data_fd = open(data_filename, O_RDWR);
     if (data_fd < 0)
     {
-        send_error_response("Failed to open table data file");
+        send_error_response("failed to open table data file");
         return -1;
     }
 
-    // Find column index to update
+    // find column index to update
     int col_idx = -1;
     for (i = 0; i < schema.num_columns; i++)
     {
@@ -1221,11 +1292,11 @@ int execute_update(char *sql)
     if (col_idx == -1)
     {
         close(data_fd);
-        send_error_response("Column not found in table");
+        send_error_response("column not found in table");
         return -1;
     }
 
-    // Find condition column index if there's a condition
+    // find condition column index
     int cond_col_idx = -1;
     if (has_condition)
     {
@@ -1241,12 +1312,12 @@ int execute_update(char *sql)
         if (cond_col_idx == -1)
         {
             close(data_fd);
-            send_error_response("Condition column not found in table");
+            send_error_response("condition column not found in table");
             return -1;
         }
     }
 
-    // Process blocks and update records
+    // process blocks and update records
     char block[BLOCK_SIZE];
     int block_num = 0;
     int records_updated = 0;
@@ -1258,44 +1329,43 @@ int execute_update(char *sql)
             break;
         }
 
-        // Calculate offset to start of first record in this block
+        // calculate offset to start of first record
         int pos = 0;
         int updated_block = 0;
 
         while (pos < BLOCK_SIZE - 4)
         {
-            // Skip dots (empty space)
+            // skip dots (empty space)
             if (block[pos] == '.')
             {
                 pos++;
                 continue;
             }
 
-            // Check if we've reached the end of records in this block
+            // check if reached the end of records
             char test_byte = block[pos];
             if (test_byte == '\0' || test_byte == '.')
             {
                 break;
             }
 
-            // Found a record, check if it matches the condition
+            // found a record
             int match = 1;
             if (has_condition)
             {
-                // Calculate offset to condition column value
+                // calc offset to condition column value
                 int cond_offset = 0;
                 for (i = 0; i < cond_col_idx; i++)
                 {
                     cond_offset += schema.columns[i].size;
                 }
 
-                // Extract condition column value
+                // condition column value
                 char cond_value[256];
                 int cond_size = schema.columns[cond_col_idx].size;
                 strncpy(cond_value, block + pos + cond_offset, cond_size);
                 cond_value[cond_size] = '\0';
 
-                // Trim trailing spaces if it's a CHAR field
                 if (schema.columns[cond_col_idx].type == TYPE_CHAR)
                 {
                     int j = cond_size - 1;
@@ -1305,11 +1375,10 @@ int execute_update(char *sql)
                     }
                 }
 
-                // Compare values based on operator
                 if (schema.columns[cond_col_idx].type == TYPE_SMALLINT ||
                     schema.columns[cond_col_idx].type == TYPE_INTEGER)
                 {
-                    // Numeric comparison
+                    // num comparison
                     int db_num = atoi(cond_value);
                     int cond_num = atoi(condition.value);
 
@@ -1331,7 +1400,7 @@ int execute_update(char *sql)
                 }
                 else
                 {
-                    // String comparison
+                    // str comparison
                     switch (condition.op)
                     {
                     case OP_EQUAL:
@@ -1352,18 +1421,16 @@ int execute_update(char *sql)
 
             if (match)
             {
-                // Calculate offset to column to update
                 int update_offset = 0;
                 for (i = 0; i < col_idx; i++)
                 {
                     update_offset += schema.columns[i].size;
                 }
 
-                // Update the column value
                 if (schema.columns[col_idx].type == TYPE_CHAR)
                 {
                     int char_size = schema.columns[col_idx].size;
-                    memset(block + pos + update_offset, ' ', char_size); // Fill with spaces
+                    memset(block + pos + update_offset, ' ', char_size);
                     int set_len = strlen(set_value);
                     strncpy(block + pos + update_offset, set_value, set_len < char_size ? set_len : char_size);
                 }
@@ -1380,7 +1447,6 @@ int execute_update(char *sql)
                 updated_block = 1;
             }
 
-            // Move to next record
             int record_size = 0;
             for (i = 0; i < schema.num_columns; i++)
             {
@@ -1389,25 +1455,23 @@ int execute_update(char *sql)
             pos += record_size;
         }
 
-        // Write block back if updated
         if (updated_block)
         {
             if (write_block(data_fd, block_num, block) < 0)
             {
                 close(data_fd);
-                send_error_response("Failed to write updated block");
+                send_error_response("failed to write updated block");
                 return -1;
             }
         }
 
-        // Check if there's a next block
         char next_block[5];
         strncpy(next_block, block + BLOCK_SIZE - 4, 4);
         next_block[4] = '\0';
 
         if (strcmp(next_block, END_MARKER) == 0)
         {
-            break; // No more blocks
+            break; // no more blocks
         }
 
         block_num = atoi(next_block);
@@ -1415,7 +1479,6 @@ int execute_update(char *sql)
 
     close(data_fd);
 
-    // Send success response
     char response[256];
     sprintf(response, "Updated %d record(s) in table %s", records_updated, table_name);
     send_http_response("text/plain", response);
@@ -1423,44 +1486,49 @@ int execute_update(char *sql)
     return 0;
 }
 
-// Execute SELECT SQL command
+/**
+ * Executes a SELECT SQL command.
+ *
+ * @param sql The SELECT SQL command string
+ * @return 0 on success, -1 on error
+ * example: SELECT * FROM movies WHERE id = 1;
+ *
+ */
 int execute_select(char *sql)
 {
-    // Example: SELECT * FROM movies WHERE id = 1;
     char table_name[32];
     char *columns[MAX_COLS];
     int num_columns = 0;
     Condition condition;
     int has_condition = 0;
 
-    // Parse the SELECT command
     char *p = strstr(sql, "SELECT");
     if (p == NULL)
     {
-        send_error_response("Invalid SELECT syntax");
+        send_error_response("invalid SELECT syntax");
         return -1;
     }
 
-    p += 6; // Skip "SELECT"
+    p += 6; // skip "SELECT"
 
-    // Skip whitespace
+    // skip whitespace
     while (*p && isspace(*p))
         p++;
 
-    // Check if it's SELECT *
+    // check if SELECT *
     int select_all = 0;
     if (*p == '*')
     {
         select_all = 1;
-        p++; // Skip '*'
+        p++; // skip '*'
 
-        // Skip to FROM
+        // skip to FROM
         while (*p && strncasecmp(p, "FROM", 4) != 0)
             p++;
     }
     else
     {
-        // Parse column list
+        // parse column list
         char *col_start = p;
         while (*p && strncasecmp(p, "FROM", 4) != 0)
             p++;
@@ -1471,15 +1539,12 @@ int execute_select(char *sql)
             return -1;
         }
 
-        // Temporarily terminate column list for parsing
         char save_char = *p;
         *p = '\0';
 
-        // Parse columns
         char *token = strtok(col_start, ",");
         while (token != NULL && num_columns < MAX_COLS)
         {
-            // Trim whitespace
             while (*token && isspace(*token))
                 token++;
 
@@ -1488,17 +1553,16 @@ int execute_select(char *sql)
             token = strtok(NULL, ",");
         }
 
-        // Restore original character
         *p = save_char;
     }
 
-    p += 4; // Skip "FROM"
+    p += 4; // skip "FROM"
 
-    // Skip whitespace
+    // skip whitespace
     while (*p && isspace(*p))
         p++;
 
-    // Get table name
+    // get table name
     int i = 0;
     while (*p && !isspace(*p) && *p != ';' && *p != 'W' && i < 31)
     {
@@ -1506,7 +1570,6 @@ int execute_select(char *sql)
     }
     table_name[i] = '\0';
 
-    // Verify table exists and get schema
     TableSchema schema;
     if (find_table_schema(table_name, &schema) != 0)
     {
@@ -1514,18 +1577,15 @@ int execute_select(char *sql)
         return -1;
     }
 
-    // Check for WHERE clause
     p = strstr(p, "WHERE");
     if (p != NULL)
     {
-        p += 5; // Skip "WHERE"
+        p += 5; // skip "WHERE"
         has_condition = 1;
 
-        // Skip whitespace
         while (*p && isspace(*p))
             p++;
 
-        // Get column name in condition
         i = 0;
         while (*p && !isspace(*p) && *p != '=' && *p != '<' && *p != '>' && *p != '!' && i < 31)
         {
@@ -1533,11 +1593,9 @@ int execute_select(char *sql)
         }
         condition.column_name[i] = '\0';
 
-        // Skip whitespace
         while (*p && isspace(*p))
             p++;
 
-        // Get operator
         if (*p == '=')
         {
             condition.op = OP_EQUAL;
@@ -1560,21 +1618,18 @@ int execute_select(char *sql)
         }
         else
         {
-            send_error_response("Invalid operator in WHERE clause");
+            send_error_response("invalid operator in WHERE clause");
             return -1;
         }
 
-        // Skip whitespace
         while (*p && isspace(*p))
             p++;
 
-        // Get condition value
         i = 0;
         if (*p == '\'' || *p == '"')
         {
-            // String value
             char quote = *p;
-            p++; // Skip quote
+            p++; // skip quote
 
             while (*p && *p != quote && i < 255)
             {
@@ -1583,13 +1638,12 @@ int execute_select(char *sql)
 
             if (*p != quote)
             {
-                send_error_response("Invalid string value: missing closing quote");
+                send_error_response("invalid string value: missing closing quote");
                 return -1;
             }
         }
         else
         {
-            // Numeric value
             while (*p && !isspace(*p) && *p != ';' && i < 255)
             {
                 condition.value[i++] = *p++;
@@ -1598,7 +1652,6 @@ int execute_select(char *sql)
         condition.value[i] = '\0';
     }
 
-    // Open table data file
     char data_filename[64];
     sprintf(data_filename, "%s.dat", table_name);
 
@@ -1609,20 +1662,17 @@ int execute_select(char *sql)
         return -1;
     }
 
-    // Find column indices from schema
     int selected_columns[MAX_COLS];
     int column_offsets[MAX_COLS];
     int num_selected = 0;
 
     if (select_all)
     {
-        // Select all columns
         num_selected = schema.num_columns;
         for (i = 0; i < num_selected; i++)
         {
             selected_columns[i] = i;
 
-            // Calculate offsets
             column_offsets[i] = 0;
             for (int j = 0; j < i; j++)
             {
@@ -1632,13 +1682,11 @@ int execute_select(char *sql)
     }
     else
     {
-        // Find indices of selected columns
         for (i = 0; i < num_columns; i++)
         {
             int col_idx = -1;
             for (int j = 0; j < schema.num_columns; j++)
             {
-                // Trim whitespace for comparison
                 char *col_name = columns[i];
                 while (*col_name && isspace(*col_name))
                     col_name++;
@@ -1653,13 +1701,12 @@ int execute_select(char *sql)
             if (col_idx == -1)
             {
                 close(data_fd);
-                send_error_response("Column not found in table");
+                send_error_response("column not found in table");
                 return -1;
             }
 
             selected_columns[num_selected] = col_idx;
 
-            // Calculate offset
             column_offsets[num_selected] = 0;
             for (int j = 0; j < col_idx; j++)
             {
@@ -1670,7 +1717,6 @@ int execute_select(char *sql)
         }
     }
 
-    // Calculate condition column offset if there's a condition
     int cond_col_idx = -1;
     int cond_offset = 0;
     if (has_condition)
@@ -1687,30 +1733,28 @@ int execute_select(char *sql)
         if (cond_col_idx == -1)
         {
             close(data_fd);
-            send_error_response("Condition column not found in table");
+            send_error_response("condition column not found in table");
             return -1;
         }
 
-        // Calculate offset to condition column
+        // calculate offset to condition column
         for (i = 0; i < cond_col_idx; i++)
         {
             cond_offset += schema.columns[i].size;
         }
     }
 
-    // Calculate record size
+    // calculate record size
     int record_size = 0;
     for (i = 0; i < schema.num_columns; i++)
     {
         record_size += schema.columns[i].size;
     }
 
-    // Start building response
-    char response[4096]; // Adjust size as needed
+    char response[4096];
     char *resp_ptr = response;
     int resp_len = 0;
 
-    // Add header row
     resp_len += sprintf(resp_ptr + resp_len, "Results from table %s:\n", table_name);
     for (i = 0; i < num_selected; i++)
     {
@@ -1723,7 +1767,6 @@ int execute_select(char *sql)
     }
     resp_len += sprintf(resp_ptr + resp_len, "\n");
 
-    // Add separator line
     for (i = 0; i < num_selected; i++)
     {
         int col_idx = selected_columns[i];
@@ -1738,7 +1781,7 @@ int execute_select(char *sql)
     }
     resp_len += sprintf(resp_ptr + resp_len, "\n");
 
-    // Process blocks and retrieve records
+    // process blocks and retrieve records
     char block[BLOCK_SIZE];
     int block_num = 0;
     int records_found = 0;
@@ -1750,34 +1793,30 @@ int execute_select(char *sql)
             break;
         }
 
-        // Process records in this block
+        // process records in this block
         int pos = 0;
 
         while (pos <= BLOCK_SIZE - 4 - record_size)
         {
-            // Skip any sequences of dots (deleted records) or null bytes
             while (pos < BLOCK_SIZE - 4 && (block[pos] == '.' || block[pos] == '\0'))
             {
                 pos++;
             }
 
-            // Check if we've gone too far
             if (pos > BLOCK_SIZE - 4 - record_size)
             {
                 break;
             }
 
-            // Found a valid record, check if it matches the condition
+            // found a valid record, check if it matches the condition
             int match = 1;
             if (has_condition)
             {
-                // Extract condition column value
                 char cond_value[256];
                 int cond_size = schema.columns[cond_col_idx].size;
                 strncpy(cond_value, block + pos + cond_offset, cond_size);
                 cond_value[cond_size] = '\0';
 
-                // Trim trailing spaces if it's a CHAR field
                 if (schema.columns[cond_col_idx].type == TYPE_CHAR)
                 {
                     int j = cond_size - 1;
@@ -1787,11 +1826,10 @@ int execute_select(char *sql)
                     }
                 }
 
-                // Compare values based on type and operator
+                // compare values based on type and operator
                 if (schema.columns[cond_col_idx].type == TYPE_SMALLINT ||
                     schema.columns[cond_col_idx].type == TYPE_INTEGER)
                 {
-                    // Numeric comparison
                     int db_num = atoi(cond_value);
                     int cond_num = atoi(condition.value);
 
@@ -1813,7 +1851,6 @@ int execute_select(char *sql)
                 }
                 else
                 {
-                    // String comparison for non-numeric types
                     switch (condition.op)
                     {
                     case OP_EQUAL:
@@ -1836,7 +1873,6 @@ int execute_select(char *sql)
             {
                 records_found++;
 
-                // Extract and format selected columns
                 for (i = 0; i < num_selected; i++)
                 {
                     int col_idx = selected_columns[i];
@@ -1847,7 +1883,6 @@ int execute_select(char *sql)
                     strncpy(value, block + pos + offset, size);
                     value[size] = '\0';
 
-                    // Trim trailing spaces for CHAR values
                     if (schema.columns[col_idx].type == TYPE_CHAR)
                     {
                         int j = size - 1;
@@ -1866,18 +1901,17 @@ int execute_select(char *sql)
                 resp_len += sprintf(resp_ptr + resp_len, "\n");
             }
 
-            // Move to next record position
+            // move to next pos
             pos += record_size;
         }
 
-        // Check if there's a next block
         char next_block[5];
         strncpy(next_block, block + BLOCK_SIZE - 4, 4);
         next_block[4] = '\0';
 
         if (strcmp(next_block, END_MARKER) == 0)
         {
-            break; // No more blocks
+            break; // no more blocks
         }
 
         block_num = atoi(next_block);
@@ -1885,24 +1919,26 @@ int execute_select(char *sql)
 
     close(data_fd);
 
-    // Add summary line
     resp_len += sprintf(resp_ptr + resp_len, "%d record(s) found.\n", records_found);
 
-    // Send response
     send_http_response("text/plain", response);
 
     return 0;
 }
 
-// Execute DELETE SQL command
+/**
+ * Executes a DELETE SQL command.
+ *
+ * @param sql The DELETE SQL command string
+ * @return 0 on success, -1 on error
+ * example: DELETE FROM movies WHERE id = 1;
+ */
 int execute_delete(char *sql)
 {
-    // Example: DELETE FROM movies WHERE id = 1;
     char table_name[32];
     Condition condition;
     int has_condition = 0;
 
-    // Parse the DELETE command
     char *p = strstr(sql, "DELETE FROM");
     if (p == NULL)
     {
@@ -1910,13 +1946,13 @@ int execute_delete(char *sql)
         return -1;
     }
 
-    p += 11; // Skip "DELETE FROM"
+    p += 11; // skip "DELETE FROM"
 
-    // Skip whitespace
+    // skip whitespace
     while (*p && isspace(*p))
         p++;
 
-    // Get table name
+    // get table name
     int i = 0;
     while (*p && !isspace(*p) && *p != ';' && *p != 'W' && i < 31)
     {
@@ -1924,7 +1960,7 @@ int execute_delete(char *sql)
     }
     table_name[i] = '\0';
 
-    // Verify table exists and get schema
+    // verify table exists and get schema
     TableSchema schema;
     if (find_table_schema(table_name, &schema) != 0)
     {
@@ -1932,18 +1968,18 @@ int execute_delete(char *sql)
         return -1;
     }
 
-    // Check for WHERE clause
+    // check for WHERE clause
     p = strstr(p, "WHERE");
     if (p != NULL)
     {
-        p += 5; // Skip "WHERE"
+        p += 5; // skip "WHERE"
         has_condition = 1;
 
         // Skip whitespace
         while (*p && isspace(*p))
             p++;
 
-        // Get column name in condition
+        // get column name
         i = 0;
         while (*p && !isspace(*p) && *p != '=' && *p != '<' && *p != '>' && *p != '!' && i < 31)
         {
@@ -1951,11 +1987,11 @@ int execute_delete(char *sql)
         }
         condition.column_name[i] = '\0';
 
-        // Skip whitespace
+        // skip whitespace
         while (*p && isspace(*p))
             p++;
 
-        // Get operator
+        // get operator
         if (*p == '=')
         {
             condition.op = OP_EQUAL;
@@ -1982,17 +2018,17 @@ int execute_delete(char *sql)
             return -1;
         }
 
-        // Skip whitespace
+        // skip whitespace
         while (*p && isspace(*p))
             p++;
 
-        // Get condition value
+        // get condition value
         i = 0;
         if (*p == '\'' || *p == '"')
         {
-            // String value
+            // str value
             char quote = *p;
-            p++; // Skip quote
+            p++; // skip quote
 
             while (*p && *p != quote && i < 255)
             {
@@ -2001,13 +2037,12 @@ int execute_delete(char *sql)
 
             if (*p != quote)
             {
-                send_error_response("Invalid string value: missing closing quote");
+                send_error_response("invalid string value: missing closing quote");
                 return -1;
             }
         }
         else
         {
-            // Numeric value
             while (*p && !isspace(*p) && *p != ';' && i < 255)
             {
                 condition.value[i++] = *p++;
@@ -2016,7 +2051,6 @@ int execute_delete(char *sql)
         condition.value[i] = '\0';
     }
 
-    // Open table data file
     char data_filename[64];
     sprintf(data_filename, "%s.dat", table_name);
 
@@ -2027,7 +2061,6 @@ int execute_delete(char *sql)
         return -1;
     }
 
-    // Find condition column index if there's a condition
     int cond_col_idx = -1;
     int cond_offset = 0;
     if (has_condition)
@@ -2044,25 +2077,25 @@ int execute_delete(char *sql)
         if (cond_col_idx == -1)
         {
             close(data_fd);
-            send_error_response("Condition column not found in table");
+            send_error_response("condition column not found in table");
             return -1;
         }
 
-        // Calculate offset to condition column
+        // calc offset to condition column
         for (i = 0; i < cond_col_idx; i++)
         {
             cond_offset += schema.columns[i].size;
         }
     }
 
-    // Calculate record size
+    // calculate record size
     int record_size = 0;
     for (i = 0; i < schema.num_columns; i++)
     {
         record_size += schema.columns[i].size;
     }
 
-    // Process blocks and delete records
+    // process blocks and delete records
     char block[BLOCK_SIZE];
     int block_num = 0;
     int records_deleted = 0;
@@ -2074,37 +2107,32 @@ int execute_delete(char *sql)
             break;
         }
 
-        // Process records in this block
+        // process records in this block
         int pos = 0;
         int updated_block = 0;
 
         while (pos < BLOCK_SIZE - 4)
         {
-            // Skip dots (empty space)
             if (block[pos] == '.')
             {
                 pos++;
                 continue;
             }
 
-            // Check if we've reached the end of records in this block
             char test_byte = block[pos];
             if (pos >= BLOCK_SIZE - 4 || (test_byte == '\0' && pos % record_size == 0))
             {
                 break;
             }
 
-            // Found a record, check if it matches the condition
             int match = 1;
             if (has_condition)
             {
-                // Extract condition column value
                 char cond_value[256];
                 int cond_size = schema.columns[cond_col_idx].size;
                 strncpy(cond_value, block + pos + cond_offset, cond_size);
                 cond_value[cond_size] = '\0';
 
-                // Trim trailing spaces if it's a CHAR field
                 if (schema.columns[cond_col_idx].type == TYPE_CHAR)
                 {
                     int j = cond_size - 1;
@@ -2114,11 +2142,10 @@ int execute_delete(char *sql)
                     }
                 }
 
-                // Compare values based on type and operator
+                // compare values based on type and operator
                 if (schema.columns[cond_col_idx].type == TYPE_SMALLINT ||
                     schema.columns[cond_col_idx].type == TYPE_INTEGER)
                 {
-                    // Numeric comparison
                     int db_num = atoi(cond_value);
                     int cond_num = atoi(condition.value);
 
@@ -2140,7 +2167,6 @@ int execute_delete(char *sql)
                 }
                 else
                 {
-                    // String comparison for non-numeric types
                     switch (condition.op)
                     {
                     case OP_EQUAL:
@@ -2161,17 +2187,14 @@ int execute_delete(char *sql)
 
             if (match)
             {
-                // Delete record by filling with dots
                 memset(block + pos, '.', record_size);
                 records_deleted++;
                 updated_block = 1;
             }
 
-            // Move to next record
             pos += record_size;
         }
 
-        // Write block back if updated
         if (updated_block)
         {
             if (write_block(data_fd, block_num, block) < 0)
@@ -2182,14 +2205,13 @@ int execute_delete(char *sql)
             }
         }
 
-        // Check if there's a next block
         char next_block[5];
         strncpy(next_block, block + BLOCK_SIZE - 4, 4);
         next_block[4] = '\0';
 
         if (strcmp(next_block, END_MARKER) == 0)
         {
-            break; // No more blocks
+            break; // no more blocks
         }
 
         block_num = atoi(next_block);
@@ -2197,7 +2219,6 @@ int execute_delete(char *sql)
 
     close(data_fd);
 
-    // Send success response
     char response[256];
     sprintf(response, "Deleted %d record(s) from table %s", records_deleted, table_name);
     send_http_response("text/plain", response);
