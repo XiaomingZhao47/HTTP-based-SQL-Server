@@ -25,15 +25,15 @@ echo ""
 
 # Test SELECT again to verify update
 echo "Testing SELECT after UPDATE..."
-curl -s "$SERVER_URL?SELECT%20*%20FROM%20movies"
+# curl -s "$SERVER_URL?SELECT%20*%20FROM%20movies"
 echo ""
 
 # Test DELETE
 echo "Testing DELETE..."
-curl -s "$SERVER_URL?DELETE%20FROM%20movies%20WHERE%20id%20=%202"
+# curl -s "$SERVER_URL?DELETE%20FROM%20movies%20WHERE%20id%20=%202"
 echo ""
 
 # Test SELECT again to verify delete
 echo "Testing SELECT after DELETE..."
-curl -s "$SERVER_URL?SELECT%20*%20FROM%20movies"
+# curl -s "$SERVER_URL?SELECT%20*%20FROM%20movies"
 echo ""
