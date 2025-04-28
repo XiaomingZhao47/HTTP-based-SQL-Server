@@ -9,7 +9,7 @@ PORT = 8003
 
 .SUFFIXES: .c .o 
 
-all: wserver wclient spin.cgi sql.cgi
+all: wserver wclient spin.cgi sql.cgi install
 
 wserver: wserver.o request.o io_helper.o
 	$(CC) $(CFLAGS) -o wserver wserver.o request.o io_helper.o 
