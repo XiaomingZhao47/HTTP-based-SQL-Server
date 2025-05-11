@@ -15,7 +15,7 @@ void io_helper_cleanup(void)
     pthread_mutex_destroy(&io_helper_mutex);
 }
 
-// Your existing readline implementation
+// readline implementation
 ssize_t readline(int fd, void *buf, size_t maxlen)
 {
     char c;
@@ -81,7 +81,6 @@ int open_client_fd(char *hostname, int port)
     return client_fd;
 }
 
-// No change needed for open_listen_fd as it doesn't use non-thread-safe functions
 int open_listen_fd(int port)
 {
     // Create a socket descriptor
