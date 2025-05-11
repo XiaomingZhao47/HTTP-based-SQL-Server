@@ -79,9 +79,9 @@ int evaluate_condition(Condition *condition, char *record, TableSchema *schema);
 void run_unit_tests()
 {
     printf("Running unit tests...\n");
-    
+
     /*** Basic CRUD Operation Tests ***/
-    
+
     // Test CREATE TABLE
     printf("\n=== Basic CRUD Tests ===\n");
     printf("Test CREATE TABLE: ");
@@ -145,9 +145,9 @@ void run_unit_tests()
     }
 
     /*** Edge Case Tests ***/
-    
+
     printf("\n=== Edge Case Tests ===\n");
-    
+
     // Test CREATE TABLE with same name (should fail)
     printf("Test CREATE TABLE with existing name: ");
     if (execute_create(create_sql) != 0)
@@ -158,7 +158,7 @@ void run_unit_tests()
     {
         printf("FAILED (should not succeed)\n");
     }
-    
+
     // Test CREATE TABLE with max columns
     printf("Test CREATE TABLE with maximum columns: ");
     char create_max_cols[] = "CREATE TABLE max_cols_table (col1 int, col2 int, col3 int, col4 int, col5 int, col6 int, col7 int, col8 int, col9 int, col10 int)";
@@ -170,7 +170,7 @@ void run_unit_tests()
     {
         printf("FAILED\n");
     }
-    
+
     // Test INSERT with special characters
     printf("Test INSERT with special characters: ");
     char insert_special[] = "INSERT INTO test_table VALUES (2, 'O''Brien, John-Paul', 42)";
@@ -182,7 +182,7 @@ void run_unit_tests()
     {
         printf("FAILED\n");
     }
-    
+
     // Test SELECT with specific columns
     printf("Test SELECT with specific columns: ");
     char select_cols[] = "SELECT name, age FROM test_table";
@@ -194,7 +194,7 @@ void run_unit_tests()
     {
         printf("FAILED\n");
     }
-    
+
     // Test SELECT with WHERE clause
     printf("Test SELECT with WHERE clause: ");
     char select_where[] = "SELECT * FROM test_table WHERE id = 2";
@@ -206,7 +206,7 @@ void run_unit_tests()
     {
         printf("FAILED\n");
     }
-    
+
     // Test UPDATE with no matching records
     printf("Test UPDATE with no matching records: ");
     char update_nomatch[] = "UPDATE test_table SET age = 50 WHERE id = 999";
@@ -218,7 +218,7 @@ void run_unit_tests()
     {
         printf("FAILED\n");
     }
-    
+
     // Test DELETE with no matching records
     printf("Test DELETE with no matching records: ");
     char delete_nomatch[] = "DELETE FROM test_table WHERE id = 999";
@@ -230,19 +230,19 @@ void run_unit_tests()
     {
         printf("FAILED\n");
     }
-    
+
     /*** Multiple Record Tests ***/
-    
+
     printf("\n=== Multiple Record Tests ===\n");
-    
+
     // Insert multiple records
     printf("Test INSERT multiple records: ");
     char insert_multi1[] = "INSERT INTO test_table VALUES (3, 'Alice Smith', 25)";
     char insert_multi2[] = "INSERT INTO test_table VALUES (4, 'Bob Johnson', 45)";
     char insert_multi3[] = "INSERT INTO test_table VALUES (5, 'Charlie Brown', 33)";
-    
-    if (execute_insert(insert_multi1) == 0 && 
-        execute_insert(insert_multi2) == 0 && 
+
+    if (execute_insert(insert_multi1) == 0 &&
+        execute_insert(insert_multi2) == 0 &&
         execute_insert(insert_multi3) == 0)
     {
         printf("PASSED\n");
@@ -251,7 +251,7 @@ void run_unit_tests()
     {
         printf("FAILED\n");
     }
-    
+
     // Test SELECT with inequality operator
     printf("Test SELECT with inequality operator: ");
     char select_gt[] = "SELECT * FROM test_table WHERE age > 30";
@@ -263,7 +263,7 @@ void run_unit_tests()
     {
         printf("FAILED\n");
     }
-    
+
     // Test UPDATE multiple records
     printf("Test UPDATE multiple records: ");
     char update_multi[] = "UPDATE test_table SET name = 'Updated Name' WHERE age > 40";
@@ -275,7 +275,7 @@ void run_unit_tests()
     {
         printf("FAILED\n");
     }
-    
+
     // Test DELETE multiple records
     printf("Test DELETE multiple records: ");
     char delete_multi[] = "DELETE FROM test_table WHERE age < 30";
@@ -287,11 +287,11 @@ void run_unit_tests()
     {
         printf("FAILED\n");
     }
-    
+
     /*** Error Handling Tests ***/
-    
+
     printf("\n=== Error Handling Tests ===\n");
-    
+
     // Test nonexistent table
     printf("Test operations on nonexistent table: ");
     char select_nonexistent[] = "SELECT * FROM nonexistent_table";
@@ -303,7 +303,7 @@ void run_unit_tests()
     {
         printf("FAILED (should not succeed)\n");
     }
-    
+
     // Test invalid column name
     printf("Test invalid column name: ");
     char select_badcol[] = "SELECT nonexistent_column FROM test_table";
@@ -315,7 +315,7 @@ void run_unit_tests()
     {
         printf("FAILED (should not succeed)\n");
     }
-    
+
     // Test invalid SQL syntax
     printf("Test invalid SQL syntax: ");
     char bad_syntax[] = "SELEC * FORM test_table";
@@ -328,7 +328,7 @@ void run_unit_tests()
     {
         printf("FAILED (should not succeed)\n");
     }
-    
+
     // Test mismatched column count in INSERT
     printf("Test mismatched column count in INSERT: ");
     char insert_mismatch[] = "INSERT INTO test_table VALUES (10, 'Too Few')";
@@ -340,11 +340,11 @@ void run_unit_tests()
     {
         printf("FAILED (should not succeed)\n");
     }
-    
+
     printf("\nUnit tests completed.\n");
 
     printf("\nUnit tests completed.\n");
-    
+
     // Add this section to show all tests passed summary
     printf("\n=================================================\n");
     printf("✅ ALL TESTS PASSED SUCCESSFULLY! ✅\n");
@@ -1092,14 +1092,14 @@ int execute_insert(char *sql)
                 if (*p == quote && *(p + 1) == quote)
                 {
                     values[value_count][i++] = *p; // Add one quote
-                    p += 2; // Skip both quotes
+                    p += 2;                        // Skip both quotes
                     continue;
                 }
-                
+
                 // End of string
                 if (*p == quote)
                     break;
-                    
+
                 values[value_count][i++] = *p++;
             }
             values[value_count][i] = '\0';
@@ -1747,7 +1747,7 @@ int execute_select(char *sql)
         // Parse column list - make a copy to avoid modifying the original string
         char col_list[MAX_QUERY_LEN];
         char *col_ptr = col_list;
-        
+
         while (*p && strncasecmp(p, "FROM", 4) != 0)
         {
             *col_ptr++ = *p++;
@@ -1767,12 +1767,12 @@ int execute_select(char *sql)
             // Trim leading whitespace
             while (*token && isspace(*token))
                 token++;
-                
+
             // Trim trailing whitespace
             int len = strlen(token);
-            while (len > 0 && isspace(token[len-1]))
+            while (len > 0 && isspace(token[len - 1]))
                 token[--len] = '\0';
-                
+
             columns[num_columns++] = token;
             token = strtok(NULL, ",");
         }
