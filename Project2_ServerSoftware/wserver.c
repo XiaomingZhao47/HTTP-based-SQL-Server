@@ -100,7 +100,6 @@ void add_request(int fd, struct sockaddr_in addr)
 {
   pthread_mutex_lock(&buffer_mutex);
 
-  // Wait if buffer is full
   while (buffer_count == buffer_size)
   {
     pthread_cond_wait(&buffer_not_full, &buffer_mutex);
@@ -111,17 +110,22 @@ void add_request(int fd, struct sockaddr_in addr)
   request.addr = addr;
   request.filesize = estimate_filesize(fd);
 
-  // Add the new request to the buffer
+  // add new request to the buffer
   request_buffer[buffer_tail] = request;
   buffer_tail = (buffer_tail + 1) % buffer_size;
   buffer_count++;
 
-  // Signal that buffer is not empty to wake up any waiting worker threads
+  // signal that buffer is not empty
   pthread_cond_broadcast(&buffer_not_empty);
   pthread_mutex_unlock(&buffer_mutex);
 }
 
-// FIFO: Get the request at the head of the buffer
+/**
+ * retrieves request from the buffer using First-In-First-Out (FIFO) scheduling policy
+ * returns the request at the head of the buffer (oldest request)
+ *
+ * @return the request at the head of the buffer
+ */
 request_t get_fifo_request()
 {
   request_t request = request_buffer[buffer_head];
@@ -129,9 +133,16 @@ request_t get_fifo_request()
   return request;
 }
 
+/**
+ * retrieves request from the buffer using Shortest File First (SFF) scheduling policy
+ * scans the entire buffer to find the request with the smallest estimated file size
+ * removes the selected request from the buffer and adjusts the buffer
+ *
+ * @return the request with the smallest estimated file size
+ */
 request_t get_sff_request()
 {
-  // Find the smallest file
+  // find the smallest file
   int smallest_idx = buffer_head;
   int smallest_size = request_buffer[smallest_idx].filesize;
 
@@ -145,28 +156,33 @@ request_t get_sff_request()
     }
   }
 
-  // Save the request to return
+  // save the request to return
   request_t request = request_buffer[smallest_idx];
 
-  // Remove the item by swapping with head if needed
   if (smallest_idx != buffer_head)
   {
-    // Swap with head
+    // swap with head
     request_buffer[smallest_idx] = request_buffer[buffer_head];
   }
 
-  // Advance head
+  // advance head
   buffer_head = (buffer_head + 1) % buffer_size;
 
   return request;
 }
 
-// Get the next request from the buffer based on scheduling algorithm
+/**
+ * gets the next request from the buffer based on the scheduling algorithm
+ * if the buffer is empty, the function will block until a request is available
+ * delegates to either get_fifo_request() or get_sff_request() based on the scheduling_alg setting
+ *
+ * @return the next request to be processed according to the current scheduling policy
+ */
 request_t get_request()
 {
   pthread_mutex_lock(&buffer_mutex);
 
-  // Wait if buffer is empty
+  // wait if buffer is empty
   while (buffer_count == 0)
   {
     pthread_cond_wait(&buffer_not_empty, &buffer_mutex);
@@ -174,13 +190,13 @@ request_t get_request()
 
   request_t request;
 
-  // Choose scheduling algorithm
+  // choose scheduling algorithm
   if (scheduling_alg == FIFO)
   {
     request = get_fifo_request();
   }
   else
-  { // SFF
+  {
     request = get_sff_request();
   }
 
@@ -192,7 +208,14 @@ request_t get_request()
   return request;
 }
 
-// Worker thread function
+/**
+ * worker thread function that continuously processes requests from the request buffer
+ * each thread calls get_request() to obtain the next request to handle,
+ * processes the request with request_handle(), and then closes the client
+ *
+ * @param arg thread argument (unused)
+ * @return NULL (thread runs until program termination)
+ */
 void *worker_thread(void *arg)
 {
   while (1)
@@ -204,9 +227,22 @@ void *worker_thread(void *arg)
   return NULL;
 }
 
-//
-// ./wserver [-d <basedir>] [-p <portnum>] [-t threads] [-b buffers] [-s schedalg]
-//
+/**
+ * main function that initializes and starts the web server
+ * command-line arguments, sets up the request buffer, creates worker threads
+ * and enters the main accept loop to receive client connections
+ *
+ * command-line options
+ * -d <basedir>  : Set the root directory for the server
+ * -p <portnum>  : Set the port number to listen on
+ * -t <threads>  : Set the number of worker threads
+ * -b <buffers>  : Set the size of the request buffer
+ * -s <schedalg> : Set the scheduling algorithm (FIFO or SFF)
+ *
+ * @param argc number of command-line arguments
+ * @param argv array of command-line argument strings
+ * @return 0 on success
+ */
 int main(int argc, char *argv[])
 {
   int c;
@@ -270,7 +306,7 @@ int main(int argc, char *argv[])
       exit(1);
     }
 
-  // Allocate request buffer
+  // allocate request buffer
   request_buffer = (request_t *)malloc(buffer_size * sizeof(request_t));
   if (!request_buffer)
   {
@@ -281,7 +317,7 @@ int main(int argc, char *argv[])
   // run out of this directory
   chdir_or_die(root_dir);
 
-  // Create worker threads
+  // create worker threads
   pthread_t threads[MAX_THREADS];
   for (int i = 0; i < num_threads; i++)
   {
@@ -295,7 +331,7 @@ int main(int argc, char *argv[])
   printf("Server starting on port %d with %d threads, %d buffers, and %s scheduling\n",
          port, num_threads, buffer_size, sched_alg);
 
-  // now, get to work
+  // get to work
   int listen_fd = open_listen_fd_or_die(port);
   while (1)
   {
@@ -303,11 +339,11 @@ int main(int argc, char *argv[])
     int client_len = sizeof(client_addr);
     int conn_fd = accept_or_die(listen_fd, (sockaddr_t *)&client_addr, (socklen_t *)&client_len);
 
-    // Instead of handling the request directly, add it to the buffer
+    // add it to the buffer
     add_request(conn_fd, client_addr);
   }
 
-  // Clean up (never reached in this example)
+  // clean up
   free(request_buffer);
   return 0;
 }
