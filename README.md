@@ -82,6 +82,7 @@ make test-schedulers   # Comprehensive scheduler testing
 make test-sql-p3       # Test concurrent SQL operations
 make test-p3           # Run all Project 3 tests
 make test-p3-simple    # Run simplified Project 3 tests
+make test-all-p3       # Run the full Project 3 test suite
 ```
 
 For performance testing with multiple threads and requests:
