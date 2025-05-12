@@ -30,7 +30,7 @@
 #define MAX_FILES 100
 #define MAX_THREADS 100
 
-// Structure to hold request parameters for worker threads
+// struct to hold request parameters for worker threads
 typedef struct
 {
   char *host;
@@ -43,12 +43,17 @@ typedef struct
   int response_size;
 } request_params;
 
-// Mutex for printing results without interleaving
+// mutex for printing results
 pthread_mutex_t print_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-//
-// Send an HTTP request for the specified file
-//
+/**
+ * sends an HTTP request for the specified file to the connected server
+ * formulates a simple HTTP GET request including the hostname and sends it through
+ * the provided file descriptor
+ *
+ * @param fd the file descriptor for the client connection to the server
+ * @param filename the URI/path of the file to request from the server
+ */
 void client_send(int fd, char *filename)
 {
   char buf[MAXBUF];
@@ -56,22 +61,27 @@ void client_send(int fd, char *filename)
 
   gethostname_or_die(hostname, MAXBUF);
 
-  /* Form and send the HTTP request */
+  /* form and send the HTTP request */
   sprintf(buf, "GET %s HTTP/1.1\n", filename);
   sprintf(buf, "%shost: %s\n\r\n", buf, hostname);
   write_or_die(fd, buf, strlen(buf));
 }
 
-//
-// Read the HTTP response and return its size
-//
+/**
+ * reads the HTTP response from the server and calculates its total size
+ * first processes the HTTP header by reading until an empty line is encountered,
+ * then reads the response body until end of data
+ *
+ * @param fd the file descriptor for the client connection to the server
+ * @return the total size of the HTTP response in bytes
+ */
 int client_read(int fd)
 {
   char buf[MAXBUF];
   int n;
   int total_size = 0;
 
-  // Read and process the HTTP Header
+  // read and process the HTTP Header
   n = readline_or_die(fd, buf, MAXBUF);
   while (strcmp(buf, "\r\n") && (n > 0))
   {
@@ -79,7 +89,7 @@ int client_read(int fd)
     n = readline_or_die(fd, buf, MAXBUF);
   }
 
-  // Read and process the HTTP Body
+  // read and process the HTTP Body
   n = readline_or_die(fd, buf, MAXBUF);
   while (n > 0)
   {
@@ -90,34 +100,39 @@ int client_read(int fd)
   return total_size;
 }
 
-//
-// Thread function to handle a single request
-//
+/**
+ * thread function that handles a single HTTP request
+ * establishes a connection to the server, sends the request, reads the response
+ * calculates timing metrics, and outputs the results in a thread-safe manner
+ *
+ * @param arg pointer to a request_params structure containing request parameters
+ * @return NULL (thread terminates after completing the request)
+ */
 void *request_thread(void *arg)
 {
   request_params *params = (request_params *)arg;
   int clientfd;
 
-  // Record start time
+  // record start time
   gettimeofday(&params->start_time, NULL);
 
-  // Open a connection to the specified host and port
+  // connection to the specified host and port
   clientfd = open_client_fd_or_die(params->host, params->port);
 
-  // Send the request
+  // send the request
   client_send(clientfd, params->filename);
 
-  // Read the response
+  // read the response
   params->response_size = client_read(clientfd);
 
-  // Record end time
+  // record end time
   gettimeofday(&params->end_time, NULL);
 
-  // Calculate response time in milliseconds
+  // calculate response time in milliseconds
   long response_time = (params->end_time.tv_sec - params->start_time.tv_sec) * 1000 +
                        (params->end_time.tv_usec - params->start_time.tv_usec) / 1000;
 
-  // Print results with mutex protection to avoid interleaved output
+  // print results with mutex protection to avoid interleaved output
   pthread_mutex_lock(&print_mutex);
   printf("Thread %d, Request %d: %s - Response size: %d bytes, Time: %ld ms\n",
          params->thread_id, params->request_id, params->filename,
@@ -128,6 +143,22 @@ void *request_thread(void *arg)
   return NULL;
 }
 
+/**
+ * main function that initializes and manages the HTTP client
+ * parses command-line arguments, validates input parameters, processes the list of files to request
+ * creates and manages worker threads to send HTTP requests, and displays performance metrics
+ *
+ * Command-line options
+ * <host>            : the hostname or IP address of the HTTP server
+ * <port>            : the port number of the HTTP server
+ * <num_threads>     : the number of concurrent threads to use
+ * <num_requests>    : the total number of requests to send
+ * <file1,file2,...> : comma-separated list of files to request
+ *
+ * @param argc number of command-line arguments
+ * @param argv array of command-line argument strings
+ * @return 0 on success
+ */
 int main(int argc, char *argv[])
 {
   char *host;

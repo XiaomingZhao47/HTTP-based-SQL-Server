@@ -1,21 +1,38 @@
 #include "io_helper.h"
 
-// Mutex for thread-safety
+// mutex for thread-safety
 pthread_mutex_t io_helper_mutex;
 
-// Initialize io_helper for thread safety
+/**
+ * initializes the I/O helper module for thread safety
+ * creates and initializes the mutex used for synchronizing access to
+ * thread-unsafe system calls
+ */
 void io_helper_init(void)
 {
     pthread_mutex_init(&io_helper_mutex, NULL);
 }
 
-// Clean up io_helper resources
+/**
+ * cleans up resources used by the I/O helper module
+ * destroys the mutex used for thread synchronization
+ */
 void io_helper_cleanup(void)
 {
     pthread_mutex_destroy(&io_helper_mutex);
 }
 
-// readline implementation
+/**
+ * reads a line of text from a file descriptor
+ * reads characters one at a time until either a newline character is encountered
+ * the maximum length is reached, or an EOF or error occurs
+ * the resulting string is null-terminated
+ *
+ * @param fd file descriptor to read from
+ * @param buf buffer to store the read line
+ * @param maxlen maximum number of bytes to read (including null terminator)
+ * @return number of bytes read (excluding null terminator) or -1 on error
+ */
 ssize_t readline(int fd, void *buf, size_t maxlen)
 {
     char c;
@@ -44,7 +61,15 @@ ssize_t readline(int fd, void *buf, size_t maxlen)
     return n;
 }
 
-// Thread-safe version of open_client_fd
+/**
+ * opens client socket connection to a specified server
+ * creates socket and establishes a connection to the server at the given hostname and port
+ * uses thread-safe access to DNS resolution functions
+ *
+ * @param hostname hostname or IP address of the server to connect to
+ * @param port port number to connect to on the server
+ * @return connected socket file descriptor or negative value on error
+ */
 int open_client_fd(char *hostname, int port)
 {
     int client_fd;
@@ -54,7 +79,7 @@ int open_client_fd(char *hostname, int port)
     if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
         return -1;
 
-    // Protect access to gethostbyname with mutex
+    // protect access to gethostbyname with mutex
     pthread_mutex_lock(&io_helper_mutex);
     if ((hp = gethostbyname(hostname)) == NULL)
     {
@@ -69,10 +94,9 @@ int open_client_fd(char *hostname, int port)
           (char *)&server_addr.sin_addr.s_addr, hp->h_length);
     server_addr.sin_port = htons(port);
 
-    // Release mutex after using gethostbyname data
+    // release mutex after using gethostbyname data
     pthread_mutex_unlock(&io_helper_mutex);
 
-    // Establish a connection with the server
     if (connect(client_fd, (sockaddr_t *)&server_addr, sizeof(server_addr)) < 0)
     {
         close(client_fd);
@@ -81,9 +105,17 @@ int open_client_fd(char *hostname, int port)
     return client_fd;
 }
 
+/**
+ * creates a socket to listen for incoming client connections
+ * creates and configures a socket with the specified port, sets socket options to allow
+ * address reuse, binds to the specified port on all network interfaces, and
+ * prepares the socket to accept connections
+ *
+ * @param port port number to listen on
+ * @return listening socket file descriptor or -1 on error
+ */
 int open_listen_fd(int port)
 {
-    // Create a socket descriptor
     int listen_fd;
     if ((listen_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
@@ -91,7 +123,7 @@ int open_listen_fd(int port)
         return -1;
     }
 
-    // Eliminates "Address already in use" error from bind
+    // eliminates "Address already in use" error from bind
     int optval = 1;
     if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval, sizeof(int)) < 0)
     {
@@ -99,7 +131,6 @@ int open_listen_fd(int port)
         return -1;
     }
 
-    // Listen_fd will be an endpoint for all requests to port on any IP address for this host
     struct sockaddr_in server_addr;
     bzero((char *)&server_addr, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
@@ -111,7 +142,6 @@ int open_listen_fd(int port)
         return -1;
     }
 
-    // Make it a listening socket ready to accept connection requests
     if (listen(listen_fd, 1024) < 0)
     {
         fprintf(stderr, "listen() failed\n");
@@ -120,7 +150,13 @@ int open_listen_fd(int port)
     return listen_fd;
 }
 
-// Function to get file size - used for SFF scheduling
+/**
+ * gets the size of a file specified by filename
+ * uses the stat system call to retrieve file information and returns the file size
+ *
+ * @param filename path to the file whose size is to be determined
+ * @return size of the file in bytes, or 0 if the file cannot be accessed
+ */
 int get_file_size(char *filename)
 {
     struct stat st;
@@ -128,10 +164,18 @@ int get_file_size(char *filename)
     {
         return st.st_size;
     }
-    return 0; // Return 0 if can't determine size
+    return 0; // return 0 if can't determine size
 }
 
-// Function to estimate request size based on peeking at the request
+/**
+ * estimates the size of an HTTP request by examining the request headers
+ * peeks at the request data without consuming it, extracts the URI, and
+ * either uses special handling for CGI scripts with 'spin' parameters or
+ * determines the actual file size for static files
+ *
+ * @param fd client socket file descriptor to examine
+ * @return estimated size in bytes of the requested resource
+ */
 int estimate_request_size(int fd)
 {
     char buf[8192];
@@ -141,12 +185,12 @@ int estimate_request_size(int fd)
 
     buf[n] = '\0';
 
-    // Look for request URI
+    // look for request URI
     char *uri_start = strstr(buf, "GET ");
     if (!uri_start)
-        return n; // Default to request size if can't parse
+        return n;
 
-    uri_start += 4; // Skip "GET "
+    uri_start += 4; // skip "GET "
     char *uri_end = strchr(uri_start, ' ');
     if (!uri_end)
         return n;
@@ -158,18 +202,18 @@ int estimate_request_size(int fd)
     strncpy(uri, uri_start, uri_len);
     uri[uri_len] = '\0';
 
-    // If it's a CGI script with spin parameter, use that as a proxy for file size
+    // if it's a CGI script with spin parameter, use that as a proxy for file size
     if (strstr(uri, "spin.cgi?"))
     {
         char *param = strchr(uri, '?');
         if (param)
         {
             int spin_time = atoi(param + 1);
-            return spin_time * 1000; // Scale up for better differentiation
+            return spin_time * 1000; // scale up
         }
     }
 
-    // For static files, extract the filename and get its actual size
+    // for static files, extract the filename and get its actual size
     char filename[1024];
     sprintf(filename, ".%s", uri);
     if (uri[strlen(uri) - 1] == '/')
