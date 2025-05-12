@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-#include <limits.h>  // For INT_MAX
 #include "request.h"
 #include "io_helper.h"
 
@@ -24,7 +23,6 @@ typedef struct
   int fd;                  // Client file descriptor
   struct sockaddr_in addr; // Client address
   int filesize;            // For SFF scheduling
-  int valid;               // Flag to mark if this request is valid or has been removed
 } request_t;
 
 // Global variables for thread management
@@ -44,8 +42,45 @@ pthread_cond_t buffer_not_empty = PTHREAD_COND_INITIALIZER;
 // Function to estimate file size for SFF scheduling
 int estimate_filesize(int fd)
 {
-  // Use request_get_filesize from request.c to properly estimate file size
-  return request_get_filesize(fd);
+  // Read the HTTP request to estimate file size
+  char buffer[8192];
+  int n = recv(fd, buffer, sizeof(buffer) - 1, MSG_PEEK);
+  if (n <= 0)
+    return 0;
+
+  buffer[n] = '\0';
+
+  // Look for request URI
+  char *uri_start = strstr(buffer, "GET ");
+  if (!uri_start)
+    return n; // Default to request size if can't parse
+
+  uri_start += 4; // Skip "GET "
+  char *uri_end = strchr(uri_start, ' ');
+  if (!uri_end)
+    return n;
+
+  int uri_len = uri_end - uri_start;
+  char uri[1024];
+  if (uri_len >= sizeof(uri))
+    uri_len = sizeof(uri) - 1;
+  strncpy(uri, uri_start, uri_len);
+  uri[uri_len] = '\0';
+
+  // If it's a CGI script with spin parameter, use that as a proxy for file size
+  if (strstr(uri, "spin.cgi?"))
+  {
+    char *param = strchr(uri, '?');
+    if (param)
+    {
+      int spin_time = atoi(param + 1);
+      return spin_time * 1000; // Scale up for better differentiation
+    }
+  }
+
+  // For regular files, try to estimate size based on the request length
+  // A more accurate implementation would open the file and get its actual size
+  return n;
 }
 
 // Add a request to the buffer
@@ -62,12 +97,10 @@ void add_request(int fd, struct sockaddr_in addr)
   request_t request;
   request.fd = fd;
   request.addr = addr;
-  request.valid = 1;  // Mark as valid
 
   // Always calculate filesize regardless of algorithm
   // This avoids having to recalculate if we switch algorithms
   request.filesize = estimate_filesize(fd);
-  printf("Added request with fd=%d, filesize=%d\n", fd, request.filesize);
 
   request_buffer[buffer_tail] = request;
   buffer_tail = (buffer_tail + 1) % buffer_size;
@@ -80,78 +113,46 @@ void add_request(int fd, struct sockaddr_in addr)
 // FIFO: Get the request at the head of the buffer
 request_t get_fifo_request()
 {
-  // Find the first valid request starting from the head
-  int curr = buffer_head;
-  while (!request_buffer[curr].valid && curr != buffer_tail) {
-    curr = (curr + 1) % buffer_size;
-  }
-  
-  // If we found a valid request, mark it as invalid and return it
-  if (request_buffer[curr].valid) {
-    request_t request = request_buffer[curr];
-    request_buffer[curr].valid = 0;  // Mark as invalid
-    
-    // If this was at the head, move head pointer past all invalid requests
-    if (curr == buffer_head) {
-      while (buffer_head != buffer_tail && !request_buffer[buffer_head].valid) {
-        buffer_head = (buffer_head + 1) % buffer_size;
-      }
-    }
-    
-    return request;
-  }
-  
-  // This should never happen if buffer_count > 0
-  fprintf(stderr, "Error: No valid requests found in buffer\n");
-  exit(1);
+  request_t request = request_buffer[buffer_head];
+  buffer_head = (buffer_head + 1) % buffer_size;
+  return request;
 }
 
 // SFF: Get the request with the smallest filesize
 request_t get_sff_request()
 {
-  // Find the smallest file among valid requests
-  int smallest_idx = -1;
-  int smallest_size = INT_MAX;  // Use INT_MAX from limits.h
-  printf("Starting SFF search with %d items in buffer\n", buffer_count);
+  // Find the request with the smallest file size
+  int smallest_idx = buffer_head;
+  int smallest_size = request_buffer[smallest_idx].filesize;
 
-  // Search through the entire buffer for the smallest valid request
-  for (int i = 0; i < buffer_size; i++)
+  // Scan the entire buffer to find the smallest request
+  for (int i = 0; i < buffer_count; i++)
   {
     int idx = (buffer_head + i) % buffer_size;
-    
-    // Only consider valid requests
-    if (request_buffer[idx].valid) {
-      printf("Checking request at index %d with size %d\n", idx, request_buffer[idx].filesize);
-      
-      if (request_buffer[idx].filesize < smallest_size)
-      {
-        smallest_idx = idx;
-        smallest_size = request_buffer[idx].filesize;
-        printf("Found new smallest request: size %d at index %d\n", smallest_size, smallest_idx);
-      }
+    if (request_buffer[idx].filesize < smallest_size)
+    {
+      smallest_idx = idx;
+      smallest_size = request_buffer[idx].filesize;
     }
-  }
-
-  if (smallest_idx == -1) {
-    // This should never happen if buffer_count > 0
-    fprintf(stderr, "Error: No valid requests found in buffer\n");
-    exit(1);
   }
 
   // Save the request to return
   request_t request = request_buffer[smallest_idx];
-  printf("Selected request with size %d from index %d\n", request.filesize, smallest_idx);
 
-  // Mark this request as invalid
-  request_buffer[smallest_idx].valid = 0;
-  
-  // If this was at the head, update head pointer
-  if (smallest_idx == buffer_head) {
-    while (buffer_head != buffer_tail && !request_buffer[buffer_head].valid) {
-      buffer_head = (buffer_head + 1) % buffer_size;
-    }
-    printf("Updated head to %d\n", buffer_head);
+  // Remove this item from the buffer
+  // Instead of shifting elements, we'll swap this element with the last one
+  // and then adjust the tail pointer
+
+  // If it's not the last element in the buffer
+  if (smallest_idx != ((buffer_tail - 1 + buffer_size) % buffer_size))
+  {
+    // Move the last element to the position of the one we're removing
+    int last_idx = (buffer_tail - 1 + buffer_size) % buffer_size;
+    request_buffer[smallest_idx] = request_buffer[last_idx];
   }
+
+  // Adjust the tail pointer
+  buffer_tail = (buffer_tail - 1 + buffer_size) % buffer_size;
 
   return request;
 }
@@ -170,7 +171,6 @@ request_t get_request()
   request_t request;
 
   // Choose scheduling algorithm
-  printf("Using scheduler: %s\n", scheduling_alg == FIFO ? "FIFO" : "SFF");
   if (scheduling_alg == FIFO)
   {
     request = get_fifo_request();
@@ -194,11 +194,8 @@ void *worker_thread(void *arg)
   while (1)
   {
     request_t request = get_request();
-    printf("Thread %lu processing request with fd=%d, size=%d\n", 
-           (unsigned long)pthread_self(), request.fd, request.filesize);
     request_handle(request.fd);
     close_or_die(request.fd);
-    printf("Thread %lu completed request\n", (unsigned long)pthread_self());
   }
   return NULL;
 }
@@ -253,12 +250,10 @@ int main(int argc, char *argv[])
       if (strcasecmp(sched_alg, "FIFO") == 0)
       {
         scheduling_alg = FIFO;
-        printf("Setting scheduler to FIFO (0)\n");
       }
       else if (strcasecmp(sched_alg, "SFF") == 0)
       {
         scheduling_alg = SFF;
-        printf("Setting scheduler to SFF (1)\n");
       }
       else
       {
@@ -277,11 +272,6 @@ int main(int argc, char *argv[])
   {
     fprintf(stderr, "Failed to allocate memory for request buffer\n");
     exit(1);
-  }
-
-  // Initialize buffer
-  for (int i = 0; i < buffer_size; i++) {
-    request_buffer[i].valid = 0;  // Mark all slots as invalid initially
   }
 
   // run out of this directory
