@@ -7,25 +7,25 @@
 
 char default_root[] = ".";
 
-// Default values
+// default values
 #define DEFAULT_THREADS 1
 #define DEFAULT_BUFFER_SIZE 1
 #define MAX_THREADS 100
 #define MAX_BUFFER_SIZE 100
 
-// Scheduling algorithms
+// scheduling algorithms
 #define FIFO 0
 #define SFF 1
 
-// Structure to represent a request in the buffer
+// request in the buffer
 typedef struct
 {
-  int fd;                  // Client file descriptor
-  struct sockaddr_in addr; // Client address
-  int filesize;            // For SFF scheduling
+  int fd;                  // client file descriptor
+  struct sockaddr_in addr; // client address
+  int filesize;            // SFF scheduling
 } request_t;
 
-// Global variables for thread management
+// global variables
 int num_threads = DEFAULT_THREADS;
 int buffer_size = DEFAULT_BUFFER_SIZE;
 int scheduling_alg = FIFO;
@@ -34,15 +34,23 @@ int buffer_head = 0;
 int buffer_tail = 0;
 request_t *request_buffer;
 
-// Synchronization variables
+// synchronization variables
 pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t buffer_not_full = PTHREAD_COND_INITIALIZER;
 pthread_cond_t buffer_not_empty = PTHREAD_COND_INITIALIZER;
 
-// Function to estimate file size for SFF scheduling
+/**
+ * Estimates the file size for Shortest File First (SFF) scheduling
+ * parses the HTTP request to determine the requested URI and attempts to estimate
+ * the size of the resource. For CGI scripts with a 'spin' parameter, it uses the parameter
+ * value as a proxy for file size
+ *
+ * @param fd the client file descriptor to read the HTTP request from
+ * @return estimated size of the requested resource in bytes
+ */
 int estimate_filesize(int fd)
 {
-  // Read the HTTP request to estimate file size
+  // read the HTTP request to estimate file size
   char buffer[8192];
   int n = recv(fd, buffer, sizeof(buffer) - 1, MSG_PEEK);
   if (n <= 0)
@@ -50,12 +58,11 @@ int estimate_filesize(int fd)
 
   buffer[n] = '\0';
 
-  // Look for request URI
   char *uri_start = strstr(buffer, "GET ");
   if (!uri_start)
-    return n; // Default to request size if can't parse
+    return n;
 
-  uri_start += 4; // Skip "GET "
+  uri_start += 4; // skip "GET "
   char *uri_end = strchr(uri_start, ' ');
   if (!uri_end)
     return n;
@@ -67,28 +74,33 @@ int estimate_filesize(int fd)
   strncpy(uri, uri_start, uri_len);
   uri[uri_len] = '\0';
 
-  // If it's a CGI script with spin parameter, use that as a proxy for file size
+  // if it's a CGI script with spin parameter, use that as a proxy for file size
   if (strstr(uri, "spin.cgi?"))
   {
     char *param = strchr(uri, '?');
     if (param)
     {
       int spin_time = atoi(param + 1);
-      return spin_time * 1000; // Scale up for better differentiation
+      return spin_time * 1000;
     }
   }
 
-  // For regular files, try to estimate size based on the request length
-  // A more accurate implementation would open the file and get its actual size
   return n;
 }
 
-// Add a request to the buffer
+/**
+ * adds a client request to the request buffer
+ * if the buffer is full, the function will block until space becomes available
+ * the file size of the requested resource is estimated for potential SFF scheduling
+ *
+ * @param fd the client socket file descriptor
+ * @param addr the client's address information
+ */
 void add_request(int fd, struct sockaddr_in addr)
 {
   pthread_mutex_lock(&buffer_mutex);
 
-  // Wait if buffer is full
+  // wait if buffer is full
   while (buffer_count == buffer_size)
   {
     pthread_cond_wait(&buffer_not_full, &buffer_mutex);
@@ -98,8 +110,6 @@ void add_request(int fd, struct sockaddr_in addr)
   request.fd = fd;
   request.addr = addr;
 
-  // Always calculate filesize regardless of algorithm
-  // This avoids having to recalculate if we switch algorithms
   request.filesize = estimate_filesize(fd);
 
   request_buffer[buffer_tail] = request;
@@ -121,11 +131,10 @@ request_t get_fifo_request()
 // SFF: Get the request with the smallest filesize
 request_t get_sff_request()
 {
-  // Find the request with the smallest file size
+  // Find the smallest file
   int smallest_idx = buffer_head;
   int smallest_size = request_buffer[smallest_idx].filesize;
 
-  // Scan the entire buffer to find the smallest request
   for (int i = 0; i < buffer_count; i++)
   {
     int idx = (buffer_head + i) % buffer_size;
@@ -139,20 +148,25 @@ request_t get_sff_request()
   // Save the request to return
   request_t request = request_buffer[smallest_idx];
 
-  // Remove this item from the buffer
-  // Instead of shifting elements, we'll swap this element with the last one
-  // and then adjust the tail pointer
-
-  // If it's not the last element in the buffer
-  if (smallest_idx != ((buffer_tail - 1 + buffer_size) % buffer_size))
+  // If it's not the head, we need to shift elements
+  if (smallest_idx != buffer_head)
   {
-    // Move the last element to the position of the one we're removing
-    int last_idx = (buffer_tail - 1 + buffer_size) % buffer_size;
-    request_buffer[smallest_idx] = request_buffer[last_idx];
-  }
+    // Shift all elements between head and smallest_idx
+    for (int i = smallest_idx; i != buffer_head;)
+    {
+      int prev = (i == 0) ? buffer_size - 1 : i - 1;
+      request_buffer[i] = request_buffer[prev];
+      i = prev;
+    }
 
-  // Adjust the tail pointer
-  buffer_tail = (buffer_tail - 1 + buffer_size) % buffer_size;
+    // Move head forward by one position
+    buffer_head = (buffer_head + 1) % buffer_size;
+  }
+  else
+  {
+    // If it's at the head, just advance the head pointer
+    buffer_head = (buffer_head + 1) % buffer_size;
+  }
 
   return request;
 }
