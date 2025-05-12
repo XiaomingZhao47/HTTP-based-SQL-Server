@@ -100,7 +100,7 @@ void add_request(int fd, struct sockaddr_in addr)
 {
   pthread_mutex_lock(&buffer_mutex);
 
-  // wait if buffer is full
+  // Wait if buffer is full
   while (buffer_count == buffer_size)
   {
     pthread_cond_wait(&buffer_not_full, &buffer_mutex);
@@ -109,14 +109,15 @@ void add_request(int fd, struct sockaddr_in addr)
   request_t request;
   request.fd = fd;
   request.addr = addr;
-
   request.filesize = estimate_filesize(fd);
 
+  // Add the new request to the buffer
   request_buffer[buffer_tail] = request;
   buffer_tail = (buffer_tail + 1) % buffer_size;
   buffer_count++;
 
-  pthread_cond_signal(&buffer_not_empty);
+  // Signal that buffer is not empty to wake up any waiting worker threads
+  pthread_cond_broadcast(&buffer_not_empty);
   pthread_mutex_unlock(&buffer_mutex);
 }
 
@@ -128,7 +129,6 @@ request_t get_fifo_request()
   return request;
 }
 
-// SFF: Get the request with the smallest filesize
 request_t get_sff_request()
 {
   // Find the smallest file
@@ -148,25 +148,15 @@ request_t get_sff_request()
   // Save the request to return
   request_t request = request_buffer[smallest_idx];
 
-  // If it's not the head, we need to shift elements
+  // Remove the item by swapping with head if needed
   if (smallest_idx != buffer_head)
   {
-    // Shift all elements between head and smallest_idx
-    for (int i = smallest_idx; i != buffer_head;)
-    {
-      int prev = (i == 0) ? buffer_size - 1 : i - 1;
-      request_buffer[i] = request_buffer[prev];
-      i = prev;
-    }
+    // Swap with head
+    request_buffer[smallest_idx] = request_buffer[buffer_head];
+  }
 
-    // Move head forward by one position
-    buffer_head = (buffer_head + 1) % buffer_size;
-  }
-  else
-  {
-    // If it's at the head, just advance the head pointer
-    buffer_head = (buffer_head + 1) % buffer_size;
-  }
+  // Advance head
+  buffer_head = (buffer_head + 1) % buffer_size;
 
   return request;
 }
