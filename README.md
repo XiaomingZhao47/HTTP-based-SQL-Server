@@ -38,6 +38,69 @@ http://localhost:8003/cgi-bin/sql.cgi?SQL_COMMAND
 
 Replace `SQL_COMMAND` with a URL-encoded SQL query.
 
+## Multi-Threaded Web Server (Project 3)
+
+The web server now supports multi-threading and scheduling algorithms to efficiently handle multiple simultaneous requests.
+
+### Command Line Options
+
+The web server can be started with the following options:
+
+```
+./wserver [-d basedir] [-p port] [-t threads] [-b buffers] [-s schedalg]
+```
+
+- `-d basedir`: The root directory from where the web server should operate (default: current directory)
+- `-p port`: The port number for the web server to listen on (default: 10000)
+- `-t threads`: The number of worker threads to create (default: 1)
+- `-b buffers`: The number of request connections that can be accepted at one time (default: 1)
+- `-s schedalg`: The scheduling algorithm to use (FIFO or SFF, default: FIFO)
+
+Example:
+```
+./wserver -p 8003 -t 4 -b 16 -s SFF
+```
+
+### Scheduling Algorithms
+
+#### FIFO (First-In-First-Out)
+Processes requests in the order they are received. When a worker thread becomes available, it handles the oldest request in the buffer.
+
+#### SFF (Smallest File First)
+Prioritizes requests for smaller files. When a worker thread becomes available, it handles the request with the smallest file size in the buffer. This can improve overall throughput, especially for mixed workloads with varying file sizes.
+
+### Testing the Multi-Threaded Server
+
+The project includes various tests to verify the multi-threading and scheduling functionality:
+
+```
+make test-mt           # Test basic multi-threading capabilities
+make test-fifo         # Test FIFO scheduler
+make test-sff          # Test SFF scheduler
+make test-fifo-sff     # Compare FIFO and SFF schedulers
+make test-schedulers   # Comprehensive scheduler testing
+make test-sql-p3       # Test concurrent SQL operations
+make test-p3           # Run all Project 3 tests
+make test-p3-simple    # Run simplified Project 3 tests
+```
+
+For performance testing with multiple threads and requests:
+```
+make perf-test
+```
+
+### Starting Server for Manual Testing
+
+To start the server with a specific configuration:
+```
+make start-server      # Starts with 4 threads, 16 buffers, SFF scheduling
+```
+
+Stop the server when done:
+```
+make stop-server
+```
+
 ## Supported SQL Commands
 
 ### CREATE TABLE
@@ -129,7 +192,3 @@ make clean
 The system stores data in the following files
 - `schema.dat`: Contains table schemas
 - `<table_name>.dat`: Contains the data for each table
-
-
-
-
