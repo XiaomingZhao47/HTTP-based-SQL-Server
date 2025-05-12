@@ -43,6 +43,8 @@ int main(int argc, char *argv[]) {
     }
     
     double start_time = get_seconds();
+    
+    // Output start marker and flush immediately to avoid buffering
     printf("<p>Starting to spin for %.2f seconds...</p>\r\n", sleep_time);
     fflush(stdout);
     
@@ -61,6 +63,9 @@ int main(int argc, char *argv[]) {
     printf("<p>My purpose is to waste time on the server!</p>\r\n");
     printf("<p>I was asked to spin for %.2f seconds</p>\r\n", sleep_time);
     printf("<p>I actually spun for %.2f seconds</p>\r\n", end_time - start_time);
+    
+    // Make sure the output is flushed
+    fflush(stdout);
     
     return 0;
 }
