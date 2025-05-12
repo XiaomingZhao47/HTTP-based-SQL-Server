@@ -41,10 +41,10 @@ echo "Large request completed"
 # Analysis of results
 echo -e "\nAnalysis:"
 if (( $(echo "$small_time > 4.5" | bc -l) )); then
-    echo "✅ PASSED: With FIFO, small request waited for large request to complete first"
+    echo "PASSED: With FIFO, small request waited for large request to complete first"
     echo "   Small request took $small_time seconds (expected > 4.5s)"
 else
-    echo "❌ FAILED: With FIFO, small request should wait for large request"
+    echo "FAILED: With FIFO, small request should wait for large request"
     echo "   Small request took $small_time seconds (expected > 4.5s)"
 fi
 

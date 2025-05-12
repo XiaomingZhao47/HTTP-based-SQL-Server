@@ -58,10 +58,10 @@ test_scheduler() {
         echo "- Small request completion time: $small_time seconds"
         
         if (( $(echo "$small_time < 2.0" | bc -l) )); then
-            echo "✅ PASSED: With SFF scheduler and multiple threads, small request completed quickly"
+            echo "PASSED: With SFF scheduler and multiple threads, small request completed quickly"
             echo "   Small request completed in $small_time seconds (expected < 2.0s)"
         else
-            echo "❌ FAILED: With SFF scheduler and multiple threads, small request should complete quickly"
+            echo "FAILED: With SFF scheduler and multiple threads, small request should complete quickly"
             echo "   Small request took $small_time seconds (expected < 2.0s)"
         fi
     
@@ -96,10 +96,10 @@ test_scheduler() {
             if [ $threads -eq 1 ]; then
                 # For FIFO with 1 thread, small request should wait for large request
                 if (( $(echo "$small_time > 4.5" | bc -l) )); then
-                    echo "✅ PASSED: With FIFO scheduler, requests completed in order they were received"
+                    echo "PASSED: With FIFO scheduler, requests completed in order they were received"
                     echo "   Small request waited for previous requests as expected"
                 else
-                    echo "❌ FAILED: With FIFO scheduler, small request should wait for previous requests"
+                    echo "FAILED: With FIFO scheduler, small request should wait for previous requests"
                     echo "   Small request completed too quickly (took $small_time seconds)"
                 fi
             else
@@ -110,10 +110,10 @@ test_scheduler() {
         elif [ "$scheduler" = "SFF" ] && [ $threads -eq 1 ]; then
             # For SFF with 1 thread (non-preemptive), small request must wait
             if (( $(echo "$small_time > 4.5" | bc -l) )); then
-                echo "✅ PASSED: With SFF scheduler and 1 thread, small request had to wait (non-preemptive scheduling)"
+                echo "PASSED: With SFF scheduler and 1 thread, small request had to wait (non-preemptive scheduling)"
                 echo "   Small request took $small_time seconds (expected > 4.5s with non-preemptive scheduling)"
             else
-                echo "❌ UNEXPECTED: With SFF scheduler and 1 thread, small request should wait due to non-preemptive scheduling"
+                echo "UNEXPECTED: With SFF scheduler and 1 thread, small request should wait due to non-preemptive scheduling"
                 echo "   Small request took $small_time seconds (expected > 4.5s)"
             fi
         fi
@@ -142,8 +142,3 @@ echo -e "\n======= Testing SFF Scheduler (4 threads) ======="
 test_scheduler SFF 4
 
 echo -e "\n===== All scheduler tests completed ====="
-echo "Expected behavior:"
-echo "- FIFO with 1 thread: Requests complete in the order they were received"
-echo "- SFF with 1 thread: Small request waits due to non-preemptive scheduling"
-echo "- SFF with multiple threads: Small request completes quickly, showing SFF behavior"
-echo "- With multiple threads: Overall throughput improves"

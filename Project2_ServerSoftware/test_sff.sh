@@ -33,16 +33,11 @@ echo "Small request completed in $small_time seconds"
 wait $MEDIUM_PID
 echo "Medium request completed"
 
-# Analysis
-echo -e "\nAnalysis for single thread:"
-echo "With a single thread and non-preemptive scheduling, the small request"
-echo "will have to wait for the medium request to finish first."
-echo "Expected: small request takes ~3s to complete after waiting for medium request"
-echo "Actual: small request took $small_time seconds"
+
 if (( $(echo "$small_time > 2.5" | bc -l) )); then
-    echo "✓ Correct behavior for non-preemptive scheduling with 1 thread"
+    echo "Correct behavior for non-preemptive scheduling with 1 thread"
 else
-    echo "✗ Unexpected behavior - small request didn't wait for medium request"
+    echo "Unexpected behavior - small request didn't wait for medium request"
 fi
 
 # Stop the server
@@ -78,16 +73,13 @@ wait $MEDIUM_PID $LARGE_PID
 echo "All requests completed"
 
 # Analysis
-echo -e "\nAnalysis for multi-thread:"
-echo "With multiple threads, the small request should be prioritized by SFF"
-echo "even if other threads are currently handling larger requests."
 echo "Expected: small request takes ~1s to complete"
 echo "Actual: small request took $small_time seconds"
 if (( $(echo "$small_time < 2.0" | bc -l) )); then
-    echo "✅ PASSED: SFF is working correctly in multi-threaded mode!"
+    echo "PASSED: SFF is working correctly in multi-threaded mode!"
     echo "    Small request completed quickly (~1s) as expected"
 else
-    echo "❌ FAILED: SFF is not working correctly in multi-threaded mode"
+    echo "FAILED: SFF is not working correctly in multi-threaded mode"
     echo "    Small request took too long ($small_time seconds)"
 fi
 

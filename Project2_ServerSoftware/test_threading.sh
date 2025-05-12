@@ -64,10 +64,10 @@ test_concurrent_requests() {
     
     # Analyze results
     if (( $(echo "$speedup > $expected_speedup * 0.7" | bc -l) )); then
-        echo "✅ PASSED: Good parallel performance, speedup is approximately $speedup"
+        echo "PASSED: Good parallel performance, speedup is approximately $speedup"
         echo "   (Should be close to min(3, $threads) = $expected_speedup)"
     else
-        echo "❌ FAILED: Poor parallel performance, speedup is only $speedup"
+        echo "FAILED: Poor parallel performance, speedup is only $speedup"
         echo "   (Should be close to min(3, $threads) = $expected_speedup)"
     fi
     
@@ -84,7 +84,3 @@ test_concurrent_requests 2
 test_concurrent_requests 4
 
 echo -e "\n===== Multi-threading tests completed ====="
-echo "If your server is properly multi-threaded:"
-echo "1. Single-threaded tests should show minimal or no speedup"
-echo "2. Multi-threaded tests should show speedup close to the thread count"
-echo "   (up to the number of parallel requests)"

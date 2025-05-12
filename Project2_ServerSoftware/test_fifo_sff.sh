@@ -32,12 +32,11 @@ echo "Small request completed in $small_time seconds"
 wait $LARGE_PID
 echo "Large request completed"
 
-echo -e "\nFIFO Analysis:"
 if (( $(echo "$small_time > 4.5" | bc -l) )); then
-    echo "✅ PASSED: With FIFO, small request waited for large request to complete first"
+    echo "PASSED: With FIFO, small request waited for large request to complete first"
     echo "   Small request took $small_time seconds (expected > 4.5s)"
 else
-    echo "❌ FAILED: With FIFO, small request should wait for large request"
+    echo "FAILED: With FIFO, small request should wait for large request"
     echo "   Small request took $small_time seconds (expected > 4.5s)"
 fi
 
@@ -76,24 +75,16 @@ echo "Small request completed in $small_time seconds"
 wait $LARGE_PID1 $LARGE_PID2
 echo "Large requests completed"
 
-echo -e "\nSFF Analysis:"
 if (( $(echo "$small_time < 2.0" | bc -l) )); then
-    echo "✅ PASSED: With SFF and multiple threads, small request completed before large requests"
+    echo "PASSED: With SFF and multiple threads, small request completed before large requests"
     echo "   Small request took $small_time seconds (expected < 2.0s)"
 else
-    echo "❌ FAILED: With SFF and multiple threads, small request should complete before large requests"
+    echo "FAILED: With SFF and multiple threads, small request should complete before large requests"
     echo "   Small request took $small_time seconds (expected < 2.0s)"
 fi
 
 # Stop the SFF server
 kill $SERVER_PID
 sleep 1
-
-echo -e "\n===== FIFO vs SFF Comparison ====="
-echo "FIFO: Processes requests in order received (first-in, first-out)"
-echo "SFF: Prioritizes requests with smallest files (shortest file first)"
-echo "Both schedulers are non-preemptive, but with multiple threads,"
-echo "SFF can still optimize request handling by assigning smaller"
-echo "requests to available threads."
 
 echo -e "\n===== All scheduler tests completed ====="
